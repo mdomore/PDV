@@ -136,7 +136,8 @@
           <h2>Congé de reclassement (si rupture anticipée)</h2>
           <p class="hint">
             Le congé de reclassement se compose de deux parties : pré-avis et congé proprement dit.
-            <strong>Si le congé est réduit (sortie avant la fin), un pourcentage de la valeur restante du congé est payée (configurable ci-dessous).</strong>
+            <strong>Si le congé est réduit (sortie avant la fin), 80% de la valeur restante du congé est payée.</strong>
+            <br><strong>L'allocation de reclassement (après préavis) bénéficie de cotisations sociales allégées.</strong>
           </p>
 
           <h3>Pré-avis</h3>
@@ -210,6 +211,101 @@
                 value="80"
               />
               <small>Pourcentage payé de la valeur restante si le congé est réduit (sortie avant la fin).</small>
+            </div>
+          </div>
+
+          <h3>Cotisations sociales - Allocation de reclassement (après préavis)</h3>
+          <p class="hint" style="font-size: 0.75rem; margin-bottom: 8px;">
+            L'allocation de reclassement bénéficie de cotisations allégées (~13,4% vs ~21% habituellement).
+          </p>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="leave-csg-crds-rate">
+                CSG/CRDS (%)
+              </label>
+              <input
+                id="leave-csg-crds-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value="6.7"
+              />
+              <small>Taux allégé (vs 9,7% habituellement).</small>
+            </div>
+            <div class="field">
+              <label for="leave-prevoyance-rate">
+                Cotisation prévoyance TB (%)
+              </label>
+              <input
+                id="leave-prevoyance-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                value="0.825"
+              />
+              <small>Jusqu'à PMSS.</small>
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="leave-mutuelle-rate">
+                Cotisation mutuelle (%)
+              </label>
+              <input
+                id="leave-mutuelle-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="0"
+              />
+              <small>0% - prise en charge par l'employeur.</small>
+            </div>
+            <div class="field">
+              <label for="leave-retraite-ta-rate">
+                Retraite complémentaire TA (%)
+              </label>
+              <input
+                id="leave-retraite-ta-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="4.92"
+              />
+              <small>Jusqu'à PMSS.</small>
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="leave-retraite-tb-rate">
+                Retraite complémentaire TB (%)
+              </label>
+              <input
+                id="leave-retraite-tb-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="9.72"
+              />
+              <small>Au-delà de PMSS.</small>
+            </div>
+            <div class="field">
+              <label for="leave-cet-rate">
+                CET T1 & T2 (%)
+              </label>
+              <input
+                id="leave-cet-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="0.14"
+              />
+              <small>Contribution Equilibre Technique.</small>
             </div>
           </div>
 
@@ -341,9 +437,17 @@
             <div class="floor-ceiling-info" id="floor-ceiling-info"></div>
           </div>
 
+          <div class="tax-info">
+            <h4>Règles fiscales</h4>
+            <ul>
+              <li><strong>Indemnités légales/conventionnelles (ILL/ICL)</strong> : Exonérées de charges sociales (jusqu'à 2 PASS = 96K€) et exonérées d'impôts</li>
+              <li><strong>Indemnité supra-légale</strong> : CSG/CRDS à 9,7% - Exonérée d'impôts</li>
+              <li><strong>Allocation de reclassement</strong> : Cotisations allégées (~13,4%) - Soumise à l'impôt sur le revenu</li>
+            </ul>
+          </div>
           <p class="disclaimer small">
-            Les montants sont affichés en brut et ne tiennent pas compte des plafonds fiscaux/socials ni
-            des spécificités de votre accord. Vérifiez toujours avec les textes officiels ou un expert.
+            Les montants sont affichés en brut. L'impôt sur le revenu est spécifique à chacun (tranche marginale).
+            Vérifiez toujours avec les textes officiels ou un expert.
           </p>
         </section>
       </section>

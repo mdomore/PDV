@@ -60,22 +60,40 @@ function computeReclassification(
   leaveMonths,
   leaveRate,
   leaveUsed,
-  reducedRate
+  reducedRate,
+  csgCrdsRate,
+  prevoyanceRate,
+  mutuelleRate,
+  retraiteTaRate,
+  retraiteTbRate,
+  cetRate
 ) {
-  // Calcul pré-avis non consommé
+  // Calcul pré-avis non consommé (brut)
   const preavisRemaining = Math.max(preavisMonths - preavisUsed, 0);
   const preavisMonthlyAllowance = refMonthly * (preavisRate / 100);
-  const preavisAmount = preavisMonthlyAllowance * preavisRemaining;
+  const preavisAmountBrut = preavisMonthlyAllowance * preavisRemaining;
 
-  // Calcul congé non consommé
-  // Si le congé est réduit (employé sort avant la fin), un pourcentage de la valeur restante est payée
+  // Calcul congé non consommé (brut)
+  // Si le congé est réduit (employé sort avant la fin), 80% de la valeur restante est payée
   const leaveRemaining = Math.max(leaveMonths - leaveUsed, 0);
   const leaveMonthlyAllowance = refMonthly * (leaveRate / 100);
   const leaveAmountRaw = leaveMonthlyAllowance * leaveRemaining;
   // Application du pourcentage de réduction si le congé est réduit (mois restants > 0)
-  const leaveAmount = leaveRemaining > 0 ? leaveAmountRaw * (reducedRate / 100) : leaveAmountRaw;
+  const leaveAmountBrut = leaveRemaining > 0 ? leaveAmountRaw * (reducedRate / 100) : leaveAmountRaw;
 
-  const totalAmount = preavisAmount + leaveAmount;
+  // Calcul des cotisations sociales sur l'allocation de reclassement (après préavis)
+  // Cotisations allégées sur allocation de reclassement (~13,4% vs ~21% habituellement)
+  const leaveCSGCRDS = leaveAmountBrut * (csgCrdsRate / 100);
+  const leavePrevoyance = leaveAmountBrut * (prevoyanceRate / 100);
+  const leaveMutuelle = leaveAmountBrut * (mutuelleRate / 100);
+  const leaveRetraiteTA = leaveAmountBrut * (retraiteTaRate / 100);
+  const leaveRetraiteTB = leaveAmountBrut * (retraiteTbRate / 100);
+  const leaveCET = leaveAmountBrut * (cetRate / 100);
+  const leaveTotalCharges = leaveCSGCRDS + leavePrevoyance + leaveMutuelle + leaveRetraiteTA + leaveRetraiteTB + leaveCET;
+  const leaveAmountNet = leaveAmountBrut - leaveTotalCharges;
+
+  // Pour le total brut, on utilise les montants bruts
+  const totalAmount = preavisAmountBrut + leaveAmountBrut;
   const totalRemaining = preavisRemaining + leaveRemaining;
 
   let detail = '';
@@ -91,8 +109,18 @@ function computeReclassification(
 
   return {
     amount: totalAmount,
-    preavisAmount,
-    leaveAmount,
+    preavisAmount: preavisAmountBrut,
+    preavisAmountBrut,
+    leaveAmount: leaveAmountBrut,
+    leaveAmountBrut,
+    leaveAmountNet,
+    leaveCSGCRDS,
+    leavePrevoyance,
+    leaveMutuelle,
+    leaveRetraiteTA,
+    leaveRetraiteTB,
+    leaveCET,
+    leaveTotalCharges,
     preavisRemaining,
     leaveRemaining,
     totalRemaining,
@@ -121,6 +149,14 @@ function handleSubmit(event) {
   const reclassLeaveRate = parseNumber(document.getElementById('reclass-leave-rate'));
   const reclassLeaveUsed = parseNumber(document.getElementById('reclass-leave-used'));
   const reclassReducedRate = parseNumber(document.getElementById('reclass-reduced-rate'));
+  
+  // Cotisations sociales sur allocation de reclassement
+  const leaveCSGCRDSRate = parseNumber(document.getElementById('leave-csg-crds-rate'));
+  const leavePrevoyanceRate = parseNumber(document.getElementById('leave-prevoyance-rate'));
+  const leaveMutuelleRate = parseNumber(document.getElementById('leave-mutuelle-rate'));
+  const leaveRetraiteTARate = parseNumber(document.getElementById('leave-retraite-ta-rate'));
+  const leaveRetraiteTBRate = parseNumber(document.getElementById('leave-retraite-tb-rate'));
+  const leaveCETRate = parseNumber(document.getElementById('leave-cet-rate'));
 
   const trainingBonusEnabled = document.getElementById('training-bonus-enabled').checked;
   const businessCreationBonusEnabled = document.getElementById('business-creation-bonus-enabled').checked;
@@ -159,7 +195,13 @@ function handleSubmit(event) {
     reclassLeaveMonths,
     reclassLeaveRate,
     reclassLeaveUsed,
-    reclassReducedRate
+    reclassReducedRate,
+    leaveCSGCRDSRate,
+    leavePrevoyanceRate,
+    leaveMutuelleRate,
+    leaveRetraiteTARate,
+    leaveRetraiteTBRate,
+    leaveCETRate
   );
 
   const total = legalExtraAdjusted + reclass.amount + trainingBonus + businessCreationBonus;
@@ -182,7 +224,23 @@ function handleSubmit(event) {
   }
 
   document.getElementById('reclass-amount').textContent = formatCurrency(reclass.amount);
-  document.getElementById('reclass-detail').textContent = reclass.detail;
+  
+  // Détail avec cotisations sociales sur allocation de reclassement
+  let reclassDetail = reclass.detail;
+  if (reclass.leaveRemaining > 0) {
+    reclassDetail += `\n\nAllocation de reclassement (après préavis):`;
+    reclassDetail += `\nBrut: ${formatCurrency(reclass.leaveAmountBrut)}`;
+    reclassDetail += `\nCSG/CRDS: ${formatCurrency(reclass.leaveCSGCRDS)} (${leaveCSGCRDSRate.toFixed(2)}%)`;
+    reclassDetail += `\nPrévoyance TB: ${formatCurrency(reclass.leavePrevoyance)} (${leavePrevoyanceRate.toFixed(3)}%)`;
+    reclassDetail += `\nMutuelle: ${formatCurrency(reclass.leaveMutuelle)} (${leaveMutuelleRate.toFixed(2)}%)`;
+    reclassDetail += `\nRetraite TA: ${formatCurrency(reclass.leaveRetraiteTA)} (${leaveRetraiteTARate.toFixed(2)}%)`;
+    reclassDetail += `\nRetraite TB: ${formatCurrency(reclass.leaveRetraiteTB)} (${leaveRetraiteTBRate.toFixed(2)}%)`;
+    reclassDetail += `\nCET T1&T2: ${formatCurrency(reclass.leaveCET)} (${leaveCETRate.toFixed(2)}%)`;
+    reclassDetail += `\nTotal charges: ${formatCurrency(reclass.leaveTotalCharges)} (~${((reclass.leaveTotalCharges / reclass.leaveAmountBrut) * 100).toFixed(1)}%)`;
+    reclassDetail += `\nNet (avant impôt): ${formatCurrency(reclass.leaveAmountNet)}`;
+    reclassDetail += `\n⚠️ Soumis à l'impôt sur le revenu (tranche marginale)`;
+  }
+  document.getElementById('reclass-detail').textContent = reclassDetail;
 
   document.getElementById('training-amount').textContent = formatCurrency(trainingBonus);
   document.getElementById('training-detail').textContent = trainingBonusEnabled 
