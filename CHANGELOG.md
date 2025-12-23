@@ -1,4 +1,15 @@
 # Changelog
+## [1.1.1] - 2025-12-23
+
+### Ajouté
+- 
+
+### Modifié
+- 
+
+### Corrigé
+- 
+
 
 Toutes les modifications notables de ce projet seront documentées dans ce fichier.
 
