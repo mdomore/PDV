@@ -2,6 +2,7 @@
 const APP_VERSION = '1.1.10';
 
 function parseNumber(input) {
+  if (!input) return 0;
   const value = parseFloat(input.value.replace(',', '.'));
   return isNaN(value) ? 0 : value;
 }
@@ -21,21 +22,41 @@ function clamp(value, min, max) {
   return value;
 }
 
-function computeLegalIndemnity(refMonthly, years, months, fracFirst, fracAfter) {
+function computeLegalIndemnity(refMonthly, years, months, illFracFirst, illFracAfter, iclFracFirst, iclFracAfter) {
   const totalYears = years + months / 12;
   const cappedFirst = Math.min(totalYears, 10);
   const remaining = Math.max(totalYears - 10, 0);
 
-  const monthsEq = cappedFirst * fracFirst + remaining * fracAfter;
-  const amount = refMonthly * monthsEq;
+  // Calcul ILL (Indemnité Légale de Licenciement)
+  const illMonthsEq = cappedFirst * illFracFirst + remaining * illFracAfter;
+  const illAmount = refMonthly * illMonthsEq;
+
+  // Calcul ICL (Indemnité Conventionnelle Casino)
+  const iclMonthsEq = cappedFirst * iclFracFirst + remaining * iclFracAfter;
+  const iclAmount = refMonthly * iclMonthsEq;
+
+  // Retenir le montant le plus favorable
+  const amount = Math.max(illAmount, iclAmount);
+  const monthsEq = amount === illAmount ? illMonthsEq : iclMonthsEq;
+  const isILL = amount === illAmount;
+
+  let detail = '';
+  if (illAmount === iclAmount) {
+    detail = `${monthsEq.toFixed(2)} mois de salaire (ILL = ICL)`;
+  } else if (isILL) {
+    detail = `${monthsEq.toFixed(2)} mois de salaire - ILL retenue (${illAmount.toFixed(2)} €) > ICL (${iclAmount.toFixed(2)} €)`;
+  } else {
+    detail = `${monthsEq.toFixed(2)} mois de salaire - ICL retenue (${iclAmount.toFixed(2)} €) > ILL (${illAmount.toFixed(2)} €)`;
+  }
 
   return {
     amount,
     monthsEq,
     totalYears,
-    detail: `${monthsEq.toFixed(2)} mois de salaire de référence pour ${totalYears.toFixed(
-      2
-    )} ans d'ancienneté`,
+    illAmount,
+    iclAmount,
+    isILL,
+    detail,
   };
 }
 
@@ -137,8 +158,10 @@ function handleSubmit(event) {
   const refMonths = Math.max(parseNumber(document.getElementById('reference-months')), 1);
   const incomeTaxRate = parseNumber(document.getElementById('income-tax-rate'));
 
-  const fracFirst = parseNumber(document.getElementById('fraction-first'));
-  const fracAfter = parseNumber(document.getElementById('fraction-after'));
+  const illFracFirst = parseNumber(document.getElementById('ill-fraction-first'));
+  const illFracAfter = parseNumber(document.getElementById('ill-fraction-after'));
+  const iclFracFirst = parseNumber(document.getElementById('icl-fraction-first'));
+  const iclFracAfter = parseNumber(document.getElementById('icl-fraction-after'));
 
   const extraMultiplier = parseNumber(document.getElementById('extra-multiplier'));
   const extraMinMonths = parseNumber(document.getElementById('extra-min-months'));
@@ -178,8 +201,10 @@ function handleSubmit(event) {
     refMonthly,
     seniorityYears,
     seniorityMonths,
-    fracFirst,
-    fracAfter
+    illFracFirst,
+    illFracAfter,
+    iclFracFirst,
+    iclFracAfter
   );
 
   const extraRaw = computeExtraLegal(refMonthly, totalYears, extraMultiplier, extraMinMonths);
@@ -262,7 +287,11 @@ function handleSubmit(event) {
   const total = totalBrut;
 
   document.getElementById('legal-amount').textContent = formatCurrency(legal.amount);
-  document.getElementById('legal-detail').textContent = legal.detail;
+  let legalDetailText = legal.detail;
+  if (legal.illAmount !== legal.iclAmount) {
+    legalDetailText += `\nILL: ${formatCurrency(legal.illAmount)} | ICL: ${formatCurrency(legal.iclAmount)}`;
+  }
+  document.getElementById('legal-detail').textContent = legalDetailText;
 
   document.getElementById('extra-amount').textContent = formatCurrency(extraRaw.amount);
   document.getElementById('extra-detail').textContent = extraRaw.detail;
