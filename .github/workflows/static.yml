@@ -10,13 +10,16 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code at tag
         uses: actions/checkout@v4
@@ -29,7 +32,7 @@ jobs:
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .  # ton index.html / script.js / style.css sont à la racine
+          path: .
 
       - name: Deploy to GitHub Pages
         id: deployment
