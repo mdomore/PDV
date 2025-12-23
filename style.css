@@ -68,8 +68,9 @@ body {
 .app-header p {
   margin: 4px 0;
   color: var(--muted);
-  max-width: 720px;
+  max-width: 100%;
   font-size: 0.98rem;
+  line-height: 1.5;
 }
 
 .app-header .disclaimer {
