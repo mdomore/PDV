@@ -135,6 +135,7 @@ function handleSubmit(event) {
   const seniorityYears = parseNumber(document.getElementById('seniority-years'));
   const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
   const refMonths = Math.max(parseNumber(document.getElementById('reference-months')), 1);
+  const incomeTaxRate = parseNumber(document.getElementById('income-tax-rate'));
 
   const fracFirst = parseNumber(document.getElementById('fraction-first'));
   const fracAfter = parseNumber(document.getElementById('fraction-after'));
@@ -239,6 +240,25 @@ function handleSubmit(event) {
   // Total net (avant impôt)
   const totalNet = legalNet + extraNet + preavisNet + leaveNet + primesNet;
   
+  // Calcul du net net (après impôt sur le revenu)
+  // Éléments exonérés d'impôts : indemnités légales/conventionnelles et supra-légale
+  const legalNetNet = legalNet; // Exonérée d'impôts
+  const extraNetNet = extraNet; // Exonérée d'impôts
+  
+  // Éléments soumis à l'impôt : pré-avis, allocation de reclassement, primes
+  const preavisNetNet = preavisNet > 0 
+    ? preavisNet - (preavisNet * (incomeTaxRate / 100))
+    : 0;
+  const leaveNetNet = leaveNet > 0
+    ? leaveNet - (leaveNet * (incomeTaxRate / 100))
+    : 0;
+  const primesNetNet = primesNet > 0
+    ? primesNet - (primesNet * (incomeTaxRate / 100))
+    : 0;
+  
+  // Total net net (après impôt)
+  const totalNetNet = legalNetNet + extraNetNet + preavisNetNet + leaveNetNet + primesNetNet;
+  
   const total = totalBrut;
 
   document.getElementById('legal-amount').textContent = formatCurrency(legal.amount);
@@ -300,7 +320,14 @@ function handleSubmit(event) {
   document.getElementById('total-net-amount').textContent = formatCurrency(totalNet);
   const totalNetDetailEl = document.getElementById('total-net-detail');
   const chargesDeducted = totalBrut - totalNet;
-  totalNetDetailEl.textContent = `Après déduction des cotisations sociales (${formatCurrency(chargesDeducted)} déduites). Soumis à l'impôt sur le revenu selon votre tranche marginale.`;
+  totalNetDetailEl.textContent = `Après déduction des cotisations sociales (${formatCurrency(chargesDeducted)} déduites).`;
+  
+  // Affichage du net net (après impôt)
+  document.getElementById('total-net-net-amount').textContent = formatCurrency(totalNetNet);
+  const totalNetNetDetailEl = document.getElementById('total-net-net-detail');
+  const incomeTaxDeducted = totalNet - totalNetNet;
+  const taxableAmount = preavisNet + leaveNet + primesNet;
+  totalNetNetDetailEl.textContent = `Après déduction de l'impôt sur le revenu (${formatCurrency(incomeTaxDeducted)} déduits sur ${formatCurrency(taxableAmount)} soumis à l'impôt, taux ${incomeTaxRate.toFixed(1)}%). Indemnités légales/conventionnelles et supra-légale exonérées d'impôts.`;
 
   // Affichage des indicateurs de plancher/plafond sur (légale + extra-légale)
   if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
@@ -346,12 +373,15 @@ function handleReset() {
 
   document.getElementById('total-amount').textContent = '0 €';
   document.getElementById('total-net-amount').textContent = '0 €';
+  document.getElementById('total-net-net-amount').textContent = '0 €';
   const totalDetailEl = document.getElementById('total-detail');
   const totalNetDetailEl = document.getElementById('total-net-detail');
+  const totalNetNetDetailEl = document.getElementById('total-net-net-detail');
   const floorCeilingInfoEl = document.getElementById('floor-ceiling-info');
   const resultTotalContainer = document.getElementById('result-total-container');
   if (totalDetailEl) totalDetailEl.textContent = '';
   if (totalNetDetailEl) totalNetDetailEl.textContent = '';
+  if (totalNetNetDetailEl) totalNetNetDetailEl.textContent = '';
   if (floorCeilingInfoEl) floorCeilingInfoEl.innerHTML = '';
   if (resultTotalContainer) {
     resultTotalContainer.classList.remove('has-floor', 'has-ceiling');

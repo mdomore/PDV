@@ -417,6 +417,29 @@ button.secondary:hover {
   color: var(--accent-text);
 }
 
+.result-total-net-net {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(56, 189, 248, 0.22));
+  border: 1px solid rgba(139, 92, 246, 0.7);
+  box-shadow: 0 16px 40px rgba(139, 92, 246, 0.4);
+}
+
+.result-total-net-net h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: #c4b5fd;
+  font-weight: 500;
+}
+
+.result-total-net-net .amount.total {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 650;
+  color: #c4b5fd;
+}
+
 .floor-ceiling-info {
   margin-top: 8px;
 }

@@ -76,6 +76,23 @@
             </div>
           </div>
 
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="income-tax-rate">
+                Taux d'imposition sur le revenu (%)
+              </label>
+              <input
+                id="income-tax-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value="14.5"
+              />
+              <small>Tranche marginale d'imposition (pour calculer le net net).</small>
+            </div>
+          </div>
+
           <h2>Paramètres indemnité légale</h2>
           <p class="hint">
             Valeur par défaut inspirée du Code du travail (CDI) : 1/4 de mois par année jusqu'à 10 ans,
@@ -469,6 +486,12 @@
             <h3>Total estimé (net avant impôt)</h3>
             <p class="amount total" id="total-net-amount">0 €</p>
             <p class="detail" id="total-net-detail" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></p>
+          </div>
+
+          <div class="result-total-net-net">
+            <h3>Total estimé (net net après impôt)</h3>
+            <p class="amount total" id="total-net-net-amount">0 €</p>
+            <p class="detail" id="total-net-net-detail" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></p>
           </div>
 
           <div class="tax-info">
