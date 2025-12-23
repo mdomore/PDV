@@ -20,14 +20,17 @@ Exemples : `1.0.0` → `1.0.1` (bug fix) → `1.1.0` (nouvelle fonctionnalité) 
 
 ### Option 1 : Script automatique (recommandé)
 
+**Pour créer une release complète** (recommandé) :
 ```bash
-# Rendre le script exécutable (une seule fois)
-chmod +x update-version.sh
+./create-release.sh 1.1.0
+```
+Ce script appelle automatiquement `update-version.sh` en interne.
 
-# Mettre à jour la version
+**Pour juste mettre à jour la version** (sans créer de release) :
+```bash
+chmod +x update-version.sh  # Une seule fois
 ./update-version.sh 1.1.0
 ```
-
 Le script met à jour automatiquement `VERSION` et `script.js`.
 
 ### Option 2 : Manuel

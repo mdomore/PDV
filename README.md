@@ -14,7 +14,7 @@ Application web simple (HTML/CSS/JavaScript) pour calculer les indemnités de Pl
 
 Ouvrir simplement `index.html` dans un navigateur web. Aucune installation requise.
 
-## Versioning
+## Versioning et Releases
 
 Le projet utilise Git pour le versioning. La version actuelle est affichée dans l'application.
 
@@ -24,32 +24,34 @@ Le projet utilise Git pour le versioning. La version actuelle est affichée dans
 git init
 git add .
 git commit -m "Version initiale"
-```
-
-### Créer une nouvelle version
-
-1. Modifier le fichier `VERSION` avec la nouvelle version (format: X.Y.Z)
-2. Ajouter une entrée dans `CHANGELOG.md`
-3. Commit et tag :
-
-```bash
-git add .
-git commit -m "Version X.Y.Z: description des changements"
-git tag -a vX.Y.Z -m "Version X.Y.Z"
-```
-
-### Partager le projet
-
-**Via GitHub/GitLab :**
-```bash
 git remote add origin <URL_DU_REPO>
 git push -u origin main
-git push --tags
 ```
 
-**Via fichier ZIP :**
-- Créer un ZIP du projet
-- Inclure la version dans le nom du fichier : `pdv-calculateur-v1.0.0.zip`
+### Créer une nouvelle version et release
+
+**Méthode simple (recommandée)** :
+```bash
+# 1. Mettre à jour CHANGELOG.md avec les changements
+# 2. Créer la release
+chmod +x create-release.sh  # Une seule fois
+./create-release.sh 1.1.0
+```
+
+Le script va automatiquement :
+- Mettre à jour la version
+- Créer le tag et le pousser
+- Déclencher le workflow GitHub Actions qui créera :
+  - Une release GitHub
+  - Un ZIP téléchargeable avec la version
+
+Voir `RELEASE.md` pour plus de détails et la méthode manuelle.
+
+### Télécharger une version
+
+Allez sur la page **Releases** du repository GitHub pour télécharger le ZIP d'une version stable.
+
+Voir `RELEASE.md` pour plus de détails.
 
 ## Structure
 
