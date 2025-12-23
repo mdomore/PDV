@@ -141,6 +141,8 @@ function handleSubmit(event) {
 
   const extraMultiplier = parseNumber(document.getElementById('extra-multiplier'));
   const extraMinMonths = parseNumber(document.getElementById('extra-min-months'));
+  const legalExtraFloor = parseNumber(document.getElementById('legal-extra-floor'));
+  const legalExtraCeiling = parseNumber(document.getElementById('legal-extra-ceiling'));
 
   const reclassPreavisMonths = parseNumber(document.getElementById('reclass-preavis-months'));
   const reclassPreavisRate = parseNumber(document.getElementById('reclass-preavis-rate'));
@@ -183,8 +185,8 @@ function handleSubmit(event) {
 
   // Application du plancher et plafond sur la somme légale + extra-légale
   const legalExtraSum = legal.amount + extraRaw.amount;
-  const MIN_LEGAL_EXTRA = 60000;
-  const MAX_LEGAL_EXTRA = 200000;
+  const MIN_LEGAL_EXTRA = legalExtraFloor > 0 ? legalExtraFloor : null;
+  const MAX_LEGAL_EXTRA = legalExtraCeiling > 0 ? legalExtraCeiling : null;
   const legalExtraAdjusted = clamp(legalExtraSum, MIN_LEGAL_EXTRA, MAX_LEGAL_EXTRA);
 
   const reclass = computeReclassification(
@@ -248,9 +250,9 @@ function handleSubmit(event) {
   // Affichage de la somme (légale + extra-légale) ajustée
   document.getElementById('legal-extra-sum-amount').textContent = formatCurrency(legalExtraAdjusted);
   const legalExtraSumDetailEl = document.getElementById('legal-extra-sum-detail');
-  if (legalExtraSum < MIN_LEGAL_EXTRA) {
+  if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
     legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plancher appliqué`;
-  } else if (legalExtraSum > MAX_LEGAL_EXTRA) {
+  } else if (MAX_LEGAL_EXTRA != null && legalExtraSum > MAX_LEGAL_EXTRA) {
     legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plafond appliqué`;
   } else {
     legalExtraSumDetailEl.textContent = `Aucun ajustement (plancher/plafond)`;
@@ -301,14 +303,14 @@ function handleSubmit(event) {
   totalNetDetailEl.textContent = `Après déduction des cotisations sociales (${formatCurrency(chargesDeducted)} déduites). Soumis à l'impôt sur le revenu selon votre tranche marginale.`;
 
   // Affichage des indicateurs de plancher/plafond sur (légale + extra-légale)
-  if (legalExtraSum < MIN_LEGAL_EXTRA) {
+  if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
     totalDetailEl.textContent = `Plancher appliqué : (légale + extra-légale) relevé de ${formatCurrency(legalExtraSum)} à ${formatCurrency(MIN_LEGAL_EXTRA)}.`;
-    floorCeilingInfoEl.innerHTML = `<div class="floor-indicator">⚠️ Plancher de 60 000 € appliqué sur (légale + extra-légale)</div>`;
+    floorCeilingInfoEl.innerHTML = `<div class="floor-indicator">⚠️ Plancher de ${formatCurrency(MIN_LEGAL_EXTRA)} appliqué sur (légale + extra-légale)</div>`;
     resultTotalContainer.classList.add('has-floor');
     resultTotalContainer.classList.remove('has-ceiling');
-  } else if (legalExtraSum > MAX_LEGAL_EXTRA) {
+  } else if (MAX_LEGAL_EXTRA != null && legalExtraSum > MAX_LEGAL_EXTRA) {
     totalDetailEl.textContent = `Plafond appliqué : (légale + extra-légale) réduit de ${formatCurrency(legalExtraSum)} à ${formatCurrency(MAX_LEGAL_EXTRA)}.`;
-    floorCeilingInfoEl.innerHTML = `<div class="ceiling-indicator">⚠️ Plafond de 200 000 € appliqué sur (légale + extra-légale)</div>`;
+    floorCeilingInfoEl.innerHTML = `<div class="ceiling-indicator">⚠️ Plafond de ${formatCurrency(MAX_LEGAL_EXTRA)} appliqué sur (légale + extra-légale)</div>`;
     resultTotalContainer.classList.add('has-ceiling');
     resultTotalContainer.classList.remove('has-floor');
   } else {

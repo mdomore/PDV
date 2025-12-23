@@ -132,6 +132,34 @@
               <small>Laissez 0 s'il n'y a pas de plancher.</small>
             </div>
           </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="legal-extra-floor">
+                Plancher (légale + extra-légale) (€)
+              </label>
+              <input
+                id="legal-extra-floor"
+                type="number"
+                min="0"
+                step="1000"
+                value="60000"
+              />
+              <small>Plancher minimum pour la somme légale + extra-légale.</small>
+            </div>
+            <div class="field">
+              <label for="legal-extra-ceiling">
+                Plafond (légale + extra-légale) (€)
+              </label>
+              <input
+                id="legal-extra-ceiling"
+                type="number"
+                min="0"
+                step="1000"
+                value="200000"
+              />
+              <small>Plafond maximum pour la somme légale + extra-légale.</small>
+            </div>
+          </div>
 
           <h2>Congé de reclassement (si rupture anticipée)</h2>
           <p class="hint">
