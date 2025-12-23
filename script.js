@@ -204,7 +204,40 @@ function handleSubmit(event) {
     leaveCETRate
   );
 
-  const total = legalExtraAdjusted + reclass.amount + trainingBonus + businessCreationBonus;
+  // Total brut
+  const totalBrut = legalExtraAdjusted + reclass.amount + trainingBonus + businessCreationBonus;
+  
+  // Calcul du total net (avant impôt)
+  // Indemnités légales/conventionnelles : exonérées de charges (jusqu'à 96K€) et d'impôts
+  // On utilise le montant après ajustement plancher/plafond, réparti proportionnellement
+  const legalRatio = legalExtraSum > 0 ? legal.amount / legalExtraSum : 0;
+  const extraRatio = legalExtraSum > 0 ? extraRaw.amount / legalExtraSum : 0;
+  const legalAdjusted = legalRatio * legalExtraAdjusted;
+  const extraAdjusted = extraRatio * legalExtraAdjusted;
+  
+  const legalNet = legalAdjusted; // Exonérée de charges
+  
+  // Indemnité supra-légale : CSG/CRDS 9,7% seulement, exonérée d'impôts
+  const SUPRA_LEGAL_CSG_CRDS_RATE = 9.7;
+  const extraNet = extraAdjusted - (extraAdjusted * (SUPRA_LEGAL_CSG_CRDS_RATE / 100));
+  
+  // Pré-avis : charges sociales normales (~21% estimé)
+  // Le pré-avis est payé comme un salaire normal avec charges habituelles
+  const PREAVIS_CHARGES_RATE = 21; // Estimation charges normales (CSG/CRDS + autres cotisations)
+  const preavisNet = reclass.preavisAmountBrut > 0 
+    ? reclass.preavisAmountBrut - (reclass.preavisAmountBrut * (PREAVIS_CHARGES_RATE / 100))
+    : 0;
+  
+  // Allocation de reclassement : net déjà calculé (charges allégées ~13,4%)
+  const leaveNet = reclass.leaveAmountNet || 0;
+  
+  // Primes : bruts (pas de charges spécifiques mentionnées)
+  const primesNet = trainingBonus + businessCreationBonus;
+  
+  // Total net (avant impôt)
+  const totalNet = legalNet + extraNet + preavisNet + leaveNet + primesNet;
+  
+  const total = totalBrut;
 
   document.getElementById('legal-amount').textContent = formatCurrency(legal.amount);
   document.getElementById('legal-detail').textContent = legal.detail;
@@ -256,10 +289,16 @@ function handleSubmit(event) {
   const subtotalBeforeAdjustment = legal.amount + extraRaw.amount + reclass.amount + trainingBonus + businessCreationBonus;
   document.getElementById('subtotal-amount').textContent = formatCurrency(subtotalBeforeAdjustment);
 
-  document.getElementById('total-amount').textContent = formatCurrency(total);
+  document.getElementById('total-amount').textContent = formatCurrency(totalBrut);
   const totalDetailEl = document.getElementById('total-detail');
   const floorCeilingInfoEl = document.getElementById('floor-ceiling-info');
   const resultTotalContainer = document.getElementById('result-total-container');
+  
+  // Affichage du total net
+  document.getElementById('total-net-amount').textContent = formatCurrency(totalNet);
+  const totalNetDetailEl = document.getElementById('total-net-detail');
+  const chargesDeducted = totalBrut - totalNet;
+  totalNetDetailEl.textContent = `Après déduction des cotisations sociales (${formatCurrency(chargesDeducted)} déduites). Soumis à l'impôt sur le revenu selon votre tranche marginale.`;
 
   // Affichage des indicateurs de plancher/plafond sur (légale + extra-légale)
   if (legalExtraSum < MIN_LEGAL_EXTRA) {
@@ -304,10 +343,13 @@ function handleReset() {
   document.getElementById('subtotal-amount').textContent = '0 €';
 
   document.getElementById('total-amount').textContent = '0 €';
+  document.getElementById('total-net-amount').textContent = '0 €';
   const totalDetailEl = document.getElementById('total-detail');
+  const totalNetDetailEl = document.getElementById('total-net-detail');
   const floorCeilingInfoEl = document.getElementById('floor-ceiling-info');
   const resultTotalContainer = document.getElementById('result-total-container');
   if (totalDetailEl) totalDetailEl.textContent = '';
+  if (totalNetDetailEl) totalNetDetailEl.textContent = '';
   if (floorCeilingInfoEl) floorCeilingInfoEl.innerHTML = '';
   if (resultTotalContainer) {
     resultTotalContainer.classList.remove('has-floor', 'has-ceiling');
