@@ -1,5 +1,5 @@
 // Version de l'application (à synchroniser avec le fichier VERSION)
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 
 function parseNumber(input) {
   const value = parseFloat(input.value.replace(',', '.'));
