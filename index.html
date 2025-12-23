@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Calculateur PDV – Indemnités</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app-header">
+        <h1>Calculateur PDV</h1>
+        <p>
+          Estimation des montants <strong>légal</strong>, <strong>extra-légal</strong> et
+          <strong>congé de reclassement</strong> à partir de votre dernière fiche de paie annuelle.
+        </p>
+        <p class="disclaimer">
+          Cet outil est une aide indicative, non un conseil juridique. Adaptez les paramètres à votre
+          accord d'entreprise / convention.
+        </p>
+      </header>
+
+      <section class="card layout">
+        <form id="pdv-form" class="form">
+          <h2>Données de base</h2>
+
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="annual-gross">Salaire brut annuel (€)</label>
+              <input
+                id="annual-gross"
+                type="number"
+                min="0"
+                step="100"
+                required
+                placeholder="Ex: 48000"
+              />
+            </div>
+
+            <div class="field">
+              <label for="seniority-years">Ancienneté (années complètes)</label>
+              <input
+                id="seniority-years"
+                type="number"
+                min="0"
+                step="1"
+                required
+                placeholder="Ex: 8"
+              />
+            </div>
+          </div>
+
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="seniority-months">Ancienneté (mois en plus)</label>
+              <input
+                id="seniority-months"
+                type="number"
+                min="0"
+                max="11"
+                step="1"
+                value="0"
+              />
+            </div>
+
+            <div class="field">
+              <label for="reference-months">
+                Salaire de référence (nb mois pour la moyenne)
+              </label>
+              <input
+                id="reference-months"
+                type="number"
+                min="1"
+                step="1"
+                value="12"
+              />
+              <small>En général 12 mois, adaptez selon votre accord.</small>
+            </div>
+          </div>
+
+          <h2>Paramètres indemnité légale</h2>
+          <p class="hint">
+            Valeur par défaut inspirée du Code du travail (CDI) : 1/4 de mois par année jusqu'à 10 ans,
+            puis 1/3 au-delà.
+          </p>
+
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="fraction-first">Fraction par année &le; 10 ans (en mois)</label>
+              <input
+                id="fraction-first"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0.25"
+              />
+            </div>
+            <div class="field">
+              <label for="fraction-after">Fraction par année &gt; 10 ans (en mois)</label>
+              <input
+                id="fraction-after"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0.33"
+              />
+            </div>
+          </div>
+
+          <h2>Paramètres indemnité extra-légale PDV</h2>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="extra-multiplier">
+                Multiplicateur PDV (mois de salaire par année)
+              </label>
+              <input
+                id="extra-multiplier"
+                type="number"
+                min="0"
+                step="0.01"
+                value="1"
+              />
+              <small>Ex : 1 = un mois par année d'ancienneté.</small>
+            </div>
+            <div class="field">
+              <label for="extra-min-months">Plancher PDV (nb min de mois)</label>
+              <input
+                id="extra-min-months"
+                type="number"
+                min="0"
+                step="0.5"
+                value="0"
+              />
+              <small>Laissez 0 s'il n'y a pas de plancher.</small>
+            </div>
+          </div>
+
+          <h2>Congé de reclassement (si rupture anticipée)</h2>
+          <p class="hint">
+            Le congé de reclassement se compose de deux parties : pré-avis et congé proprement dit.
+            <strong>Si le congé est réduit (sortie avant la fin), un pourcentage de la valeur restante du congé est payée (configurable ci-dessous).</strong>
+          </p>
+
+          <h3>Pré-avis</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-preavis-months">
+                Durée pré-avis (mois)
+              </label>
+              <input
+                id="reclass-preavis-months"
+                type="number"
+                min="0"
+                step="0.5"
+                value="3"
+              />
+            </div>
+            <div class="field">
+              <label for="reclass-preavis-rate">
+                Taux d'allocation pré-avis (% du brut)
+              </label>
+              <input
+                id="reclass-preavis-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="100"
+              />
+            </div>
+          </div>
+
+          <h3>Congé de reclassement</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-leave-months">
+                Durée congé (mois)
+              </label>
+              <input
+                id="reclass-leave-months"
+                type="number"
+                min="0"
+                step="0.5"
+                value="9"
+              />
+            </div>
+            <div class="field">
+              <label for="reclass-leave-rate">
+                Taux d'allocation congé (% du brut)
+              </label>
+              <input
+                id="reclass-leave-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="75"
+              />
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-reduced-rate">
+                % de la valeur restante si congé réduit
+              </label>
+              <input
+                id="reclass-reduced-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="80"
+              />
+              <small>Pourcentage payé de la valeur restante si le congé est réduit (sortie avant la fin).</small>
+            </div>
+          </div>
+
+          <h3>Durée consommée</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-preavis-used">
+                Pré-avis consommé (mois)
+              </label>
+              <input
+                id="reclass-preavis-used"
+                type="number"
+                min="0"
+                step="0.5"
+                value="0"
+              />
+            </div>
+            <div class="field">
+              <label for="reclass-leave-used">
+                Congé consommé (mois)
+              </label>
+              <input
+                id="reclass-leave-used"
+                type="number"
+                min="0"
+                step="0.5"
+                value="0"
+              />
+            </div>
+          </div>
+
+          <h2>Primes PDV</h2>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label class="checkbox-label" for="training-bonus-enabled">
+                <input
+                  id="training-bonus-enabled"
+                  type="checkbox"
+                />
+                <span>Activer la prime de formation</span>
+              </label>
+              <input
+                id="training-bonus"
+                type="number"
+                min="0"
+                step="100"
+                value="10000"
+              />
+              <small>Prime unique pour formation (€ HT).</small>
+            </div>
+            <div class="field">
+              <label class="checkbox-label" for="business-creation-bonus-enabled">
+                <input
+                  id="business-creation-bonus-enabled"
+                  type="checkbox"
+                />
+                <span>Activer la prime création d'entreprise</span>
+              </label>
+              <input
+                id="business-creation-bonus"
+                type="number"
+                min="0"
+                step="100"
+                value="10000"
+              />
+              <small>Prime totale payée en 2 fois (€).</small>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button type="submit">Calculer</button>
+            <button type="button" id="reset-btn" class="secondary">Réinitialiser</button>
+          </div>
+        </form>
+
+        <section class="results" id="results">
+          <h2>Résultats estimatifs</h2>
+
+          <div class="result-grid">
+            <article class="result-block">
+              <h3>Indemnité légale</h3>
+              <p class="amount" id="legal-amount">0 €</p>
+              <p class="detail" id="legal-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Indemnité extra-légale PDV</h3>
+              <p class="amount" id="extra-amount">0 €</p>
+              <p class="detail" id="extra-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Indemnité congé de reclassement (non consommé)</h3>
+              <p class="amount" id="reclass-amount">0 €</p>
+              <p class="detail" id="reclass-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Prime de formation</h3>
+              <p class="amount" id="training-amount">0 €</p>
+              <p class="detail" id="training-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Prime création d'entreprise</h3>
+              <p class="amount" id="business-amount">0 €</p>
+              <p class="detail" id="business-detail"></p>
+            </article>
+          </div>
+
+          <div class="result-legal-extra-sum">
+            <h3>Somme (légale + extra-légale)</h3>
+            <p class="amount" id="legal-extra-sum-amount">0 €</p>
+            <p class="detail" id="legal-extra-sum-detail" style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;"></p>
+          </div>
+
+          <div class="result-subtotal">
+            <h3>Total avant ajustement (légale + extra-légale)</h3>
+            <p class="amount" id="subtotal-amount">0 €</p>
+            <p class="detail" style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">
+              (avant application plancher/plafond sur légale + extra-légale)
+            </p>
+          </div>
+
+          <div class="result-total" id="result-total-container">
+            <h3>Total estimé (brut)</h3>
+            <p class="amount total" id="total-amount">0 €</p>
+            <p class="detail" id="total-detail"></p>
+            <div class="floor-ceiling-info" id="floor-ceiling-info"></div>
+          </div>
+
+          <p class="disclaimer small">
+            Les montants sont affichés en brut et ne tiennent pas compte des plafonds fiscaux/socials ni
+            des spécificités de votre accord. Vérifiez toujours avec les textes officiels ou un expert.
+          </p>
+        </section>
+      </section>
+
+      <footer class="app-footer">
+        <p>Outil indicatif pour simulations PDV – HTML/CSS/JavaScript uniquement (aucune donnée stockée).</p>
+        <p class="version-info">Version <span id="app-version">-</span></p>
+      </footer>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
+
