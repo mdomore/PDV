@@ -27,24 +27,86 @@ if ! git diff-index --quiet HEAD --; then
   exit 1
 fi
 
-# Mettre à jour la version
+# Mettre à jour la version (mode silencieux)
 echo "📝 Mise à jour de la version à $NEW_VERSION..."
-./update-version.sh "$NEW_VERSION"
+./update-version.sh "$NEW_VERSION" --quiet
 
 # Vérifier que le CHANGELOG a été mis à jour
 if ! grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
-  echo "⚠️  Attention: Le CHANGELOG.md ne contient pas d'entrée pour la version $NEW_VERSION"
-  echo "   Ajoutez une entrée dans CHANGELOG.md avant de continuer."
-  read -p "Continuer quand même? (y/N) " -n 1 -r
+  echo ""
+  echo "⚠️  Le CHANGELOG.md ne contient pas d'entrée pour la version $NEW_VERSION"
+  echo ""
+  TODAY=$(date +%Y-%m-%d)
+  CHANGELOG_ENTRY="## [$NEW_VERSION] - $TODAY
+
+### Ajouté
+- 
+
+### Modifié
+- 
+
+### Corrigé
+- 
+"
+  echo "Voulez-vous que je génère automatiquement un template dans CHANGELOG.md? (Y/n)"
+  read -p "> " -n 1 -r
   echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 1
+  if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    # Créer un fichier temporaire avec le template
+    TEMP_FILE=$(mktemp)
+    echo "$CHANGELOG_ENTRY" > "$TEMP_FILE"
+    # Insérer après la ligne "# Changelog" (ligne 1)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      # macOS
+      sed -i '' "1r $TEMP_FILE" CHANGELOG.md
+    else
+      # Linux
+      sed -i "1r $TEMP_FILE" CHANGELOG.md
+    fi
+    rm "$TEMP_FILE"
+    echo "✅ Template ajouté dans CHANGELOG.md"
+    echo ""
+    read -p "Voulez-vous ouvrir CHANGELOG.md pour le compléter? (Y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+      # Essayer d'ouvrir avec l'éditeur par défaut
+      if command -v code &> /dev/null; then
+        code CHANGELOG.md
+      elif command -v nano &> /dev/null; then
+        nano CHANGELOG.md
+      elif command -v vim &> /dev/null; then
+        vim CHANGELOG.md
+      else
+        echo "Ouvrez CHANGELOG.md manuellement pour compléter l'entrée"
+      fi
+      echo ""
+      read -p "Appuyez sur Entrée une fois que vous avez complété le CHANGELOG... " -r
+    fi
+  else
+    echo "Ajoutez manuellement l'entrée dans CHANGELOG.md au format:"
+    echo "## [$NEW_VERSION] - $TODAY"
+    echo ""
+    read -p "Appuyez sur Entrée une fois que c'est fait... " -r
+  fi
+  
+  # Vérifier à nouveau après édition
+  if ! grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
+    echo ""
+    read -p "Le CHANGELOG n'a toujours pas d'entrée pour $NEW_VERSION. Continuer quand même? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
   fi
 fi
 
 # Commit les changements de version
+echo ""
 echo "💾 Commit des changements de version..."
-git add VERSION script.js CHANGELOG.md
+git add VERSION script.js
+if grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
+  git add CHANGELOG.md
+fi
 git commit -m "Version $NEW_VERSION"
 
 # Créer le tag

@@ -1,0 +1,74 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Read changelog
+        id: changelog
+        run: |
+          # Extract changelog entry for this version
+          VERSION="${{ steps.get_version.version }}"
+          # Extract content between ## [VERSION] and next ## or end of file
+          CHANGELOG=$(awk "/^## \[$VERSION\]/,/^## \[/{if (/^## \[/ && !/^## \[$VERSION\]/) exit; if (/^## \[$VERSION\]/) next; print}" CHANGELOG.md)
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Consultez le CHANGELOG.md pour les détails de cette version."
+          fi
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Release ZIP
+        run: |
+          VERSION="${{ steps.get_version.version }}"
+          ZIP_NAME="pdv-calculateur-v${VERSION}.zip"
+          
+          # Create ZIP excluding git files
+          zip -r "$ZIP_NAME" . \
+            -x "*.git*" \
+            -x ".github/*" \
+            -x "*.DS_Store" \
+            -x "update-version.sh"
+          
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          echo "Created: $ZIP_NAME"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Version ${{ steps.get_version.version }}
+          body: |
+            ## Version ${{ steps.get_version.version }}
+            
+            ${{ steps.changelog.changelog }}
+            
+            ## Téléchargement
+            
+            Téléchargez le fichier ZIP ci-dessous et extrayez-le. Ouvrez simplement `index.html` dans votre navigateur.
+          files: ${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: false
+
