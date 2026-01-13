@@ -22,6 +22,18 @@ function clamp(value, min, max) {
   return value;
 }
 
+function getFloorBySeniority(totalYears) {
+  if (totalYears < 5) {
+    return 60000; // 0 à 5 ans
+  } else if (totalYears < 10) {
+    return 80000; // 5 à 10 ans
+  } else if (totalYears < 15) {
+    return 100000; // 10 à 15 ans
+  } else {
+    return 120000; // 15 ans et +
+  }
+}
+
 function computeLegalIndemnity(refMonthly, years, months, illFracFirst, illFracAfter, iclFracFirst, iclFracAfter) {
   const totalYears = years + months / 12;
   const cappedFirst = Math.min(totalYears, 10);
@@ -300,9 +312,9 @@ function handleSubmit(event) {
   document.getElementById('legal-extra-sum-amount').textContent = formatCurrency(legalExtraAdjusted);
   const legalExtraSumDetailEl = document.getElementById('legal-extra-sum-detail');
   if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
-    legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plancher appliqué`;
+    legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plancher de ${formatCurrency(MIN_LEGAL_EXTRA)} appliqué (ancienneté ${totalYears.toFixed(2)} ans)`;
   } else if (MAX_LEGAL_EXTRA != null && legalExtraSum > MAX_LEGAL_EXTRA) {
-    legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plafond appliqué`;
+    legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plafond de ${formatCurrency(MAX_LEGAL_EXTRA)} appliqué`;
   } else {
     legalExtraSumDetailEl.textContent = `Aucun ajustement (plancher/plafond)`;
   }
@@ -360,8 +372,8 @@ function handleSubmit(event) {
 
   // Affichage des indicateurs de plancher/plafond sur (légale + extra-légale)
   if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
-    totalDetailEl.textContent = `Plancher appliqué : (légale + extra-légale) relevé de ${formatCurrency(legalExtraSum)} à ${formatCurrency(MIN_LEGAL_EXTRA)}.`;
-    floorCeilingInfoEl.innerHTML = `<div class="floor-indicator">⚠️ Plancher de ${formatCurrency(MIN_LEGAL_EXTRA)} appliqué sur (légale + extra-légale)</div>`;
+    totalDetailEl.textContent = `Plancher appliqué : (légale + extra-légale) relevé de ${formatCurrency(legalExtraSum)} à ${formatCurrency(MIN_LEGAL_EXTRA)} (ancienneté ${totalYears.toFixed(2)} ans).`;
+    floorCeilingInfoEl.innerHTML = `<div class="floor-indicator">⚠️ Plancher de ${formatCurrency(MIN_LEGAL_EXTRA)} appliqué sur (légale + extra-légale) - ancienneté ${totalYears.toFixed(2)} ans</div>`;
     resultTotalContainer.classList.add('has-floor');
     resultTotalContainer.classList.remove('has-ceiling');
   } else if (MAX_LEGAL_EXTRA != null && legalExtraSum > MAX_LEGAL_EXTRA) {
@@ -379,6 +391,12 @@ function handleSubmit(event) {
 function handleReset() {
   const form = document.getElementById('pdv-form');
   form.reset();
+
+  // Réinitialiser le plafond à 300k
+  const ceilingInput = document.getElementById('legal-extra-ceiling');
+  if (ceilingInput) {
+    ceilingInput.value = 300000;
+  }
 
   document.getElementById('legal-amount').textContent = '0 €';
   document.getElementById('legal-detail').textContent = '';
@@ -415,6 +433,9 @@ function handleReset() {
   if (resultTotalContainer) {
     resultTotalContainer.classList.remove('has-floor', 'has-ceiling');
   }
+  
+  // Réinitialiser l'état des champs de primes
+  toggleBonusFields();
 }
 
 function toggleBonusFields() {
@@ -444,11 +465,33 @@ function toggleBonusFields() {
   }
 }
 
+function updateFloorBySeniority() {
+  const seniorityYears = parseNumber(document.getElementById('seniority-years'));
+  const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
+  const totalYears = seniorityYears + seniorityMonths / 12;
+  const floorInput = document.getElementById('legal-extra-floor');
+  
+  if (floorInput && (seniorityYears > 0 || seniorityMonths > 0)) {
+    const suggestedFloor = getFloorBySeniority(totalYears);
+    // Ne mettre à jour que si l'utilisateur n'a pas modifié manuellement la valeur
+    // On vérifie si la valeur actuelle correspond à un plancher suggéré
+    const currentValue = parseNumber(floorInput);
+    const isSuggestedValue = [60000, 80000, 100000, 120000].includes(currentValue);
+    
+    if (isSuggestedValue || currentValue === 0) {
+      floorInput.value = suggestedFloor;
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('pdv-form');
   const resetBtn = document.getElementById('reset-btn');
   const trainingCheckbox = document.getElementById('training-bonus-enabled');
   const businessCheckbox = document.getElementById('business-creation-bonus-enabled');
+  const seniorityYearsInput = document.getElementById('seniority-years');
+  const seniorityMonthsInput = document.getElementById('seniority-months');
+  const ceilingInput = document.getElementById('legal-extra-ceiling');
 
   if (form) {
     form.addEventListener('submit', handleSubmit);
@@ -463,6 +506,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (businessCheckbox) {
     businessCheckbox.addEventListener('change', toggleBonusFields);
+  }
+  
+  // Mise à jour automatique du plancher selon l'ancienneté
+  if (seniorityYearsInput) {
+    seniorityYearsInput.addEventListener('input', updateFloorBySeniority);
+    seniorityYearsInput.addEventListener('change', updateFloorBySeniority);
+  }
+  if (seniorityMonthsInput) {
+    seniorityMonthsInput.addEventListener('input', updateFloorBySeniority);
+    seniorityMonthsInput.addEventListener('change', updateFloorBySeniority);
+  }
+  
+  // Initialisation du plafond à 300k
+  if (ceilingInput && !ceilingInput.value) {
+    ceilingInput.value = 300000;
   }
   
   // Initialisation de l'état des champs
