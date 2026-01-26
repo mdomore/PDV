@@ -1,5 +1,5 @@
 // Version de l'application (à synchroniser avec le fichier VERSION)
-const APP_VERSION = '1.1.12';
+const APP_VERSION = '1.1.13';
 
 function parseNumber(input) {
   if (!input) return 0;
