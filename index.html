@@ -18,8 +18,20 @@
         </p>
       </header>
 
+      <div class="tabs-container">
+        <div class="tabs">
+          <button type="button" class="tab-button active" data-hypothesis="1">
+            Hypothèse 1 : Accord signé
+          </button>
+          <button type="button" class="tab-button" data-hypothesis="2">
+            Hypothèse 2 : PDV unilatéral
+          </button>
+        </div>
+      </div>
+
       <section class="card layout">
         <form id="pdv-form" class="form">
+          <input type="hidden" id="current-hypothesis" value="1">
           <h2>Données de base</h2>
 
           <div class="field-group two-cols">
@@ -29,7 +41,7 @@
                 id="annual-gross"
                 type="number"
                 min="0"
-                step="100"
+                step="any"
                 required
                 placeholder="Ex: 48000"
               />
@@ -152,6 +164,10 @@
           </div>
 
           <h2>Paramètres indemnité extra-légale PDV</h2>
+          <div id="hypothesis-info" class="hypothesis-info">
+            <p class="hint" id="hypothesis-description"></p>
+            <p class="hint" style="margin-top: 8px; margin-bottom: 0;" id="floor-info"></p>
+          </div>
           <div class="field-group two-cols">
             <div class="field">
               <label for="extra-multiplier">
@@ -164,7 +180,7 @@
                 step="0.01"
                 value="1"
               />
-              <small>Ex : 1 = un mois par année d'ancienneté.</small>
+              <small id="multiplier-description">Base : 1 mois par année. Calculé automatiquement selon l'hypothèse et l'ancienneté, modifiable manuellement.</small>
             </div>
             <div class="field">
               <label for="extra-min-months">Plancher PDV (nb min de mois)</label>
@@ -187,10 +203,11 @@
                 id="legal-extra-floor"
                 type="number"
                 min="0"
-                step="1000"
+                step="any"
                 value="60000"
+                data-manual-edit="false"
               />
-              <small>Plancher minimum pour la somme légale + extra-légale. Mis à jour automatiquement selon l'ancienneté (0-5 ans: 60k, 5-10 ans: 80k, 10-15 ans: 100k, 15+ ans: 120k).</small>
+              <small>Plancher minimum pour la somme légale + extra-légale. Mis à jour automatiquement selon l'hypothèse et l'ancienneté.</small>
             </div>
             <div class="field">
               <label for="legal-extra-ceiling">
@@ -200,7 +217,7 @@
                 id="legal-extra-ceiling"
                 type="number"
                 min="0"
-                step="1000"
+                step="any"
                 value="300000"
               />
               <small>Plafond maximum pour la somme légale + extra-légale (par défaut: 300k).</small>
@@ -267,7 +284,7 @@
                 min="0"
                 max="100"
                 step="1"
-                value="75"
+                value="80"
               />
             </div>
           </div>
@@ -425,7 +442,7 @@
                 id="training-bonus"
                 type="number"
                 min="0"
-                step="100"
+                step="any"
                 value="10000"
               />
               <small>Prime unique pour formation (€ HT).</small>
@@ -442,10 +459,10 @@
                 id="business-creation-bonus"
                 type="number"
                 min="0"
-                step="100"
-                value="10000"
+                step="any"
+                value="20000"
               />
-              <small>Prime totale payée en 2 fois (€).</small>
+              <small id="business-bonus-description">Prime totale payée en 2 fois (€).</small>
             </div>
           </div>
 
@@ -524,11 +541,13 @@
           </div>
 
           <div class="tax-info">
-            <h4>Règles fiscales</h4>
+            <h4>Règles fiscales et charges sociales</h4>
             <ul>
               <li><strong>Indemnités légales/conventionnelles (ILL/ICL)</strong> : Exonérées de charges sociales (jusqu'à 2 PASS = 96K€) et exonérées d'impôts</li>
-              <li><strong>Indemnité supra-légale</strong> : CSG/CRDS à 9,7% - Exonérée d'impôts</li>
+              <li><strong>Indemnité supra-légale</strong> : CSG/CRDS à 9,7% uniquement - Exonérée d'impôts</li>
+              <li><strong>Pré-avis</strong> : Charges sociales normales (~21%) - Soumis à l'impôt sur le revenu</li>
               <li><strong>Allocation de reclassement</strong> : Cotisations allégées (~13,4%) - Soumise à l'impôt sur le revenu</li>
+              <li><strong>Primes (formation et création d'entreprise)</strong> : Aucune charge sociale déduite - Soumises à l'impôt sur le revenu</li>
             </ul>
           </div>
           <p class="disclaimer small">

@@ -22,16 +22,57 @@ function clamp(value, min, max) {
   return value;
 }
 
-function getFloorBySeniority(totalYears) {
-  if (totalYears < 5) {
-    return 60000; // 0 à 5 ans
-  } else if (totalYears < 10) {
-    return 80000; // 5 à 10 ans
-  } else if (totalYears < 15) {
-    return 100000; // 10 à 15 ans
+function getCurrentHypothesis() {
+  const hypothesisInput = document.getElementById('current-hypothesis');
+  return hypothesisInput ? parseInt(hypothesisInput.value) : 1;
+}
+
+function getMultiplierBySeniority(totalYears, hypothesis) {
+  if (hypothesis === 1) {
+    // Hypothèse 1 : Barème progressif
+    if (totalYears <= 5) {
+      return 1.0; // 1 à 5 ans : 1 mois/an
+    } else if (totalYears <= 10) {
+      return 1.0; // 5 à 10 ans : 1 mois/an
+    } else if (totalYears <= 15) {
+      return 1.2; // 10 à 15 ans : 1,2 mois/an
+    } else {
+      return 1.5; // +15 ans : 1,5 mois/an
+    }
   } else {
-    return 120000; // 15 ans et +
+    // Hypothèse 2 : Base unique
+    return 1.0; // Toutes tranches : 1 mois/an
   }
+}
+
+function getFloorBySeniority(totalYears, hypothesis) {
+  if (hypothesis === 1) {
+    // Hypothèse 1 : Accord signé
+    if (totalYears <= 5) {
+      return 70000; // 1 à 5 ans (inclusif)
+    } else if (totalYears <= 10) {
+      return 90000; // 5 à 10 ans (inclusif)
+    } else if (totalYears <= 15) {
+      return 110000; // 10 à 15 ans (inclusif)
+    } else {
+      return 130000; // +15 ans
+    }
+  } else {
+    // Hypothèse 2 : PDV unilatéral
+    if (totalYears <= 5) {
+      return 60000; // 1 à 5 ans (inclusif)
+    } else if (totalYears <= 10) {
+      return 80000; // 5 à 10 ans (inclusif)
+    } else if (totalYears <= 15) {
+      return 80000; // 10 à 15 ans (inclusif)
+    } else {
+      return 80000; // +15 ans
+    }
+  }
+}
+
+function getBusinessCreationBonus(hypothesis) {
+  return hypothesis === 1 ? 20000 : 10000;
 }
 
 function computeLegalIndemnity(refMonthly, years, months, illFracFirst, illFracAfter, iclFracFirst, iclFracAfter) {
@@ -72,16 +113,49 @@ function computeLegalIndemnity(refMonthly, years, months, illFracFirst, illFracA
   };
 }
 
-function computeExtraLegal(refMonthly, totalYears, multiplier, minMonths) {
-  const monthsEq = Math.max(totalYears * multiplier, minMonths);
+function computeExtraLegal(refMonthly, totalYears, hypothesis, minMonths, customMultiplier = null) {
+  // Calcul par tranches pour Hypothèse 1 (barème progressif)
+  let monthsEq = 0;
+  let detailParts = [];
+  
+  // Si un multiplicateur personnalisé est fourni, l'utiliser directement
+  if (customMultiplier !== null && customMultiplier > 0) {
+    monthsEq = totalYears * customMultiplier;
+    detailParts.push(`${totalYears.toFixed(2)} ans × ${customMultiplier.toFixed(2)}`);
+  } else if (hypothesis === 1) {
+    // Hypothèse 1 : Barème progressif
+    // Tranche 1-5 ans : de 0 à 5 ans (inclusif)
+    const years1to5 = Math.min(totalYears, 5);
+    // Tranche 5-10 ans : de 5 à 10 ans (inclusif)
+    const years5to10 = totalYears > 5 ? Math.min(totalYears - 5, 5) : 0;
+    // Tranche 10-15 ans : de 10 à 15 ans (inclusif)
+    const years10to15 = totalYears > 10 ? Math.min(totalYears - 10, 5) : 0;
+    // Tranche +15 ans : au-delà de 15 ans
+    const years15plus = totalYears > 15 ? totalYears - 15 : 0;
+    
+    monthsEq = years1to5 * 1.0 + years5to10 * 1.0 + years10to15 * 1.2 + years15plus * 1.5;
+    
+    if (years1to5 > 0) detailParts.push(`${years1to5.toFixed(2)} ans (1-5) × 1.0`);
+    if (years5to10 > 0) detailParts.push(`${years5to10.toFixed(2)} ans (5-10) × 1.0`);
+    if (years10to15 > 0) detailParts.push(`${years10to15.toFixed(2)} ans (10-15) × 1.2`);
+    if (years15plus > 0) detailParts.push(`${years15plus.toFixed(2)} ans (+15) × 1.5`);
+  } else {
+    // Hypothèse 2 : Base unique
+    monthsEq = totalYears * 1.0;
+    detailParts.push(`${totalYears.toFixed(2)} ans × 1.0`);
+  }
+  
+  monthsEq = Math.max(monthsEq, minMonths);
   const amount = refMonthly * monthsEq;
+  
+  const detailText = minMonths > 0 
+    ? `${monthsEq.toFixed(2)} mois de salaire de référence (${detailParts.join(' + ')}, plancher ${minMonths} mois)`
+    : `${monthsEq.toFixed(2)} mois de salaire de référence (${detailParts.join(' + ')})`;
 
   return {
     amount,
     monthsEq,
-    detail: `${monthsEq.toFixed(2)} mois de salaire de référence (multiplieur ${multiplier} × ${totalYears.toFixed(
-      2
-    )} années, plancher ${minMonths} mois)`,
+    detail: detailText,
   };
 }
 
@@ -175,7 +249,7 @@ function handleSubmit(event) {
   const iclFracFirst = parseNumber(document.getElementById('icl-fraction-first'));
   const iclFracAfter = parseNumber(document.getElementById('icl-fraction-after'));
 
-  const extraMultiplier = parseNumber(document.getElementById('extra-multiplier'));
+  const hypothesis = getCurrentHypothesis();
   const extraMinMonths = parseNumber(document.getElementById('extra-min-months'));
   const legalExtraFloor = parseNumber(document.getElementById('legal-extra-floor'));
   const legalExtraCeiling = parseNumber(document.getElementById('legal-extra-ceiling'));
@@ -219,7 +293,46 @@ function handleSubmit(event) {
     iclFracAfter
   );
 
-  const extraRaw = computeExtraLegal(refMonthly, totalYears, extraMultiplier, extraMinMonths);
+  // Récupération du multiplicateur (saisi manuellement ou calculé automatiquement)
+  const multiplierInput = document.getElementById('extra-multiplier');
+  let multiplier = null;
+  let useCustomMultiplier = false;
+  
+  if (multiplierInput) {
+    const manualMultiplier = parseNumber(multiplierInput);
+    const autoMultiplier = getMultiplierBySeniority(totalYears, hypothesis);
+    
+    // Vérifier si l'utilisateur a modifié manuellement le multiplicateur
+    // On considère qu'il est modifié si :
+    // - La valeur est différente du multiplicateur automatique
+    // - ET la valeur n'est pas 0 ou vide
+    // - ET ce n'est pas juste une valeur arrondie du multiplicateur automatique
+    const isManuallyEdited = multiplierInput.dataset.manualEdit === 'true';
+    const isDifferentFromAuto = Math.abs(manualMultiplier - autoMultiplier) > 0.01;
+    
+    if (isManuallyEdited || (manualMultiplier > 0 && isDifferentFromAuto)) {
+      // Utiliser la valeur manuelle
+      multiplier = manualMultiplier;
+      useCustomMultiplier = true;
+    } else {
+      // Utiliser le calcul automatique et mettre à jour le champ
+      multiplier = autoMultiplier;
+      multiplierInput.value = multiplier.toFixed(2);
+      multiplierInput.dataset.manualEdit = 'false';
+    }
+  } else {
+    multiplier = getMultiplierBySeniority(totalYears, hypothesis);
+  }
+  
+  // Si un multiplicateur personnalisé est utilisé, passer null pour utiliser le calcul simple
+  // Sinon, passer null pour utiliser le barème progressif automatique
+  const extraRaw = computeExtraLegal(
+    refMonthly, 
+    totalYears, 
+    hypothesis, 
+    extraMinMonths, 
+    useCustomMultiplier ? multiplier : null
+  );
 
   // Application du plancher et plafond sur la somme légale + extra-légale
   const legalExtraSum = legal.amount + extraRaw.amount;
@@ -247,42 +360,64 @@ function handleSubmit(event) {
   // Total brut
   const totalBrut = legalExtraAdjusted + reclass.amount + trainingBonus + businessCreationBonus;
   
-  // Calcul du total net (avant impôt)
-  // Indemnités légales/conventionnelles : exonérées de charges (jusqu'à 96K€) et d'impôts
-  // On utilise le montant après ajustement plancher/plafond, réparti proportionnellement
+  // ============================================================================
+  // CALCUL DES CHARGES SOCIALES ET IMPÔTS
+  // ============================================================================
+  
+  // Répartition proportionnelle après application plancher/plafond
+  // On préserve les règles fiscales de chaque composante
   const legalRatio = legalExtraSum > 0 ? legal.amount / legalExtraSum : 0;
   const extraRatio = legalExtraSum > 0 ? extraRaw.amount / legalExtraSum : 0;
   const legalAdjusted = legalRatio * legalExtraAdjusted;
   const extraAdjusted = extraRatio * legalExtraAdjusted;
   
-  const legalNet = legalAdjusted; // Exonérée de charges
+  // 1. INDEMNITÉS LÉGALES/CONVENTIONNELLES (ILL/ICL)
+  // - Charges sociales : EXONÉRÉES (jusqu'à 2 PASS = 96K€)
+  // - Impôts : EXONÉRÉS
+  const legalNet = legalAdjusted;
   
-  // Indemnité supra-légale : CSG/CRDS 9,7% seulement, exonérée d'impôts
+  // 2. INDEMNITÉ SUPRA-LÉGALE (extra-légale)
+  // - Charges sociales : CSG/CRDS uniquement à 9,7%
+  // - Impôts : EXONÉRÉS
   const SUPRA_LEGAL_CSG_CRDS_RATE = 9.7;
   const extraNet = extraAdjusted - (extraAdjusted * (SUPRA_LEGAL_CSG_CRDS_RATE / 100));
   
-  // Pré-avis : charges sociales normales (~21% estimé)
-  // Le pré-avis est payé comme un salaire normal avec charges habituelles
-  const PREAVIS_CHARGES_RATE = 21; // Estimation charges normales (CSG/CRDS + autres cotisations)
+  // 3. PRÉ-AVIS (congé de reclassement)
+  // - Charges sociales : Charges normales estimées à 21% (CSG/CRDS + cotisations)
+  // - Impôts : SOUMIS à l'impôt sur le revenu (tranche marginale)
+  const PREAVIS_CHARGES_RATE = 21; // Estimation charges normales
   const preavisNet = reclass.preavisAmountBrut > 0 
     ? reclass.preavisAmountBrut - (reclass.preavisAmountBrut * (PREAVIS_CHARGES_RATE / 100))
     : 0;
   
-  // Allocation de reclassement : net déjà calculé (charges allégées ~13,4%)
+  // 4. ALLOCATION DE RECLASSEMENT (après préavis)
+  // - Charges sociales : Charges allégées ~13,4% (calculées dans computeReclassification)
+  //   - CSG/CRDS : 6,7% (au lieu de 9,7%)
+  //   - Prévoyance TB : 0,825%
+  //   - Retraite TA : 4,92%
+  //   - Retraite TB : 9,72%
+  //   - CET : 0,14%
+  // - Impôts : SOUMIS à l'impôt sur le revenu (tranche marginale)
   const leaveNet = reclass.leaveAmountNet || 0;
   
-  // Primes : bruts (pas de charges spécifiques mentionnées)
+  // 5. PRIMES (formation et création d'entreprise)
+  // - Charges sociales : Aucune charge déduite actuellement
+  // - Impôts : SOUMIS à l'impôt sur le revenu (tranche marginale)
+  // ⚠️ À vérifier : Les primes doivent-elles être soumises à des charges sociales spécifiques ?
   const primesNet = trainingBonus + businessCreationBonus;
   
   // Total net (avant impôt)
   const totalNet = legalNet + extraNet + preavisNet + leaveNet + primesNet;
   
-  // Calcul du net net (après impôt sur le revenu)
-  // Éléments exonérés d'impôts : indemnités légales/conventionnelles et supra-légale
-  const legalNetNet = legalNet; // Exonérée d'impôts
-  const extraNetNet = extraNet; // Exonérée d'impôts
+  // ============================================================================
+  // CALCUL DE L'IMPÔT SUR LE REVENU
+  // ============================================================================
   
-  // Éléments soumis à l'impôt : pré-avis, allocation de reclassement, primes
+  // Éléments EXONÉRÉS d'impôts
+  const legalNetNet = legalNet; // Indemnités légales/conventionnelles
+  const extraNetNet = extraNet; // Indemnité supra-légale
+  
+  // Éléments SOUMIS à l'impôt sur le revenu (tranche marginale)
   const preavisNetNet = preavisNet > 0 
     ? preavisNet - (preavisNet * (incomeTaxRate / 100))
     : 0;
@@ -397,6 +532,12 @@ function handleReset() {
   if (ceilingInput) {
     ceilingInput.value = 300000;
   }
+  
+  // Réinitialiser le taux d'allocation congé à 80%
+  const leaveRateInput = document.getElementById('reclass-leave-rate');
+  if (leaveRateInput) {
+    leaveRateInput.value = 80;
+  }
 
   document.getElementById('legal-amount').textContent = '0 €';
   document.getElementById('legal-detail').textContent = '';
@@ -436,6 +577,9 @@ function handleReset() {
   
   // Réinitialiser l'état des champs de primes
   toggleBonusFields();
+  
+  // Mise à jour de l'interface selon l'hypothèse
+  updateHypothesisUI();
 }
 
 function toggleBonusFields() {
@@ -465,22 +609,113 @@ function toggleBonusFields() {
   }
 }
 
-function updateFloorBySeniority() {
+function updateFloorBySeniority(forceUpdate = false) {
   const seniorityYears = parseNumber(document.getElementById('seniority-years'));
   const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
   const totalYears = seniorityYears + seniorityMonths / 12;
+  const hypothesis = getCurrentHypothesis();
   const floorInput = document.getElementById('legal-extra-floor');
   
-  if (floorInput && (seniorityYears > 0 || seniorityMonths > 0)) {
-    const suggestedFloor = getFloorBySeniority(totalYears);
-    // Ne mettre à jour que si l'utilisateur n'a pas modifié manuellement la valeur
-    // On vérifie si la valeur actuelle correspond à un plancher suggéré
-    const currentValue = parseNumber(floorInput);
-    const isSuggestedValue = [60000, 80000, 100000, 120000].includes(currentValue);
-    
-    if (isSuggestedValue || currentValue === 0) {
-      floorInput.value = suggestedFloor;
+  if (!floorInput) return;
+  
+  const suggestedFloor = getFloorBySeniority(totalYears, hypothesis);
+  const currentValue = parseNumber(floorInput);
+  
+  // Liste des planchers suggérés selon l'hypothèse
+  const suggestedValuesHyp1 = [70000, 90000, 110000, 130000];
+  const suggestedValuesHyp2 = [60000, 80000];
+  const allSuggestedValues = hypothesis === 1 ? suggestedValuesHyp1 : suggestedValuesHyp2;
+  
+  // Vérifier si l'utilisateur a modifié manuellement le champ avec une valeur personnalisée
+  const isManuallyEdited = floorInput.dataset.manualEdit === 'true';
+  const isCustomValue = !allSuggestedValues.includes(currentValue) && currentValue > 0;
+  
+  // Mettre à jour automatiquement si :
+  // 1. Force update (changement d'hypothèse)
+  // 2. La valeur est 0 ou vide
+  // 3. La valeur actuelle est différente du plancher suggéré ET ce n'est pas une valeur personnalisée modifiée manuellement
+  const shouldUpdate = forceUpdate || 
+                       currentValue === 0 || 
+                       (currentValue !== suggestedFloor && !(isManuallyEdited && isCustomValue));
+  
+  if (shouldUpdate) {
+    floorInput.value = suggestedFloor;
+    // Réinitialiser le flag si on met à jour automatiquement
+    if (!isCustomValue) {
+      floorInput.dataset.manualEdit = 'false';
     }
+  }
+}
+
+function updateHypothesisUI() {
+  const hypothesis = getCurrentHypothesis();
+  const descriptionEl = document.getElementById('hypothesis-description');
+  const floorInfoEl = document.getElementById('floor-info');
+  const multiplierInput = document.getElementById('extra-multiplier');
+  const multiplierDescEl = document.getElementById('multiplier-description');
+  const businessBonusInput = document.getElementById('business-creation-bonus');
+  const businessBonusDescEl = document.getElementById('business-bonus-description');
+  
+  // Mise à jour de la description
+  if (descriptionEl) {
+    if (hypothesis === 1) {
+      descriptionEl.textContent = 'Barème progressif selon l\'ancienneté : 1-5 ans (1 mois/an), 5-10 ans (1 mois/an), 10-15 ans (1,2 mois/an), +15 ans (1,5 mois/an).';
+    } else {
+      descriptionEl.textContent = 'Base unique : 1 mois par année d\'ancienneté pour toutes les tranches.';
+    }
+  }
+  
+  // Mise à jour de l'affichage des planchers
+  if (floorInfoEl) {
+    if (hypothesis === 1) {
+      floorInfoEl.innerHTML = '<strong>Planchers selon ancienneté :</strong> 1-5 ans : 70 000 € | 5-10 ans : 90 000 € | 10-15 ans : 110 000 € | +15 ans : 130 000 €';
+    } else {
+      floorInfoEl.innerHTML = '<strong>Planchers selon ancienneté :</strong> 1-5 ans : 60 000 € | 5-10 ans : 80 000 € | 10-15 ans : 80 000 € | +15 ans : 80 000 €';
+    }
+  }
+  
+  // Mise à jour du multiplicateur selon l'ancienneté (seulement si pas modifié manuellement)
+  const seniorityYears = parseNumber(document.getElementById('seniority-years'));
+  const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
+  const totalYears = seniorityYears + seniorityMonths / 12;
+  const autoMultiplier = getMultiplierBySeniority(totalYears, hypothesis);
+  
+  if (multiplierInput) {
+    const currentMultiplier = parseNumber(multiplierInput);
+    // Mettre à jour seulement si la valeur actuelle correspond au multiplicateur automatique précédent
+    // ou si c'est la valeur par défaut (1.0)
+    const isAutoValue = currentMultiplier === 1.0 || currentMultiplier === autoMultiplier || 
+                        (hypothesis === 1 && [1.0, 1.2, 1.5].includes(currentMultiplier)) ||
+                        (hypothesis === 2 && currentMultiplier === 1.0);
+    
+    if (isAutoValue || currentMultiplier === 0) {
+      multiplierInput.value = autoMultiplier.toFixed(2);
+    }
+  }
+  
+  if (multiplierDescEl) {
+    if (hypothesis === 1) {
+      multiplierDescEl.textContent = 'Base : 1 mois/an. Calculé automatiquement selon le barème progressif et l\'ancienneté, modifiable manuellement.';
+    } else {
+      multiplierDescEl.textContent = 'Base : 1 mois par année d\'ancienneté. Modifiable manuellement.';
+    }
+  }
+  
+  // Mise à jour du plancher (force update lors du changement d'hypothèse)
+  updateFloorBySeniority(true);
+  
+  // Mise à jour de la prime création d'entreprise
+  const businessBonus = getBusinessCreationBonus(hypothesis);
+  if (businessBonusInput) {
+    const currentValue = parseNumber(businessBonusInput);
+    // Mettre à jour seulement si c'est une valeur par défaut
+    if (currentValue === 10000 || currentValue === 20000 || currentValue === 0) {
+      businessBonusInput.value = businessBonus;
+    }
+  }
+  
+  if (businessBonusDescEl) {
+    businessBonusDescEl.textContent = `Prime totale payée en 2 fois (€). ${hypothesis === 1 ? 'Hypothèse 1 : 20 000 €' : 'Hypothèse 2 : 10 000 €'}`;
   }
 }
 
@@ -492,6 +727,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const seniorityYearsInput = document.getElementById('seniority-years');
   const seniorityMonthsInput = document.getElementById('seniority-months');
   const ceilingInput = document.getElementById('legal-extra-ceiling');
+  const multiplierInput = document.getElementById('extra-multiplier');
+  const tabButtons = document.querySelectorAll('.tab-button');
 
   if (form) {
     form.addEventListener('submit', handleSubmit);
@@ -499,6 +736,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (resetBtn) {
     resetBtn.addEventListener('click', handleReset);
   }
+  
+  // Gestion des onglets
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const hypothesis = parseInt(button.dataset.hypothesis);
+      const hypothesisInput = document.getElementById('current-hypothesis');
+      
+      // Mise à jour de l'état actif
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      
+      if (hypothesisInput) {
+        hypothesisInput.value = hypothesis;
+      }
+      
+      // Mise à jour de l'interface selon l'hypothèse
+      updateHypothesisUI();
+    });
+  });
   
   // Gestion de l'activation/désactivation des champs de primes
   if (trainingCheckbox) {
@@ -510,12 +766,68 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Mise à jour automatique du plancher selon l'ancienneté
   if (seniorityYearsInput) {
-    seniorityYearsInput.addEventListener('input', updateFloorBySeniority);
-    seniorityYearsInput.addEventListener('change', updateFloorBySeniority);
+    seniorityYearsInput.addEventListener('input', () => {
+      updateFloorBySeniority();
+      updateHypothesisUI();
+    });
+    seniorityYearsInput.addEventListener('change', () => {
+      updateFloorBySeniority();
+      updateHypothesisUI();
+    });
   }
   if (seniorityMonthsInput) {
-    seniorityMonthsInput.addEventListener('input', updateFloorBySeniority);
-    seniorityMonthsInput.addEventListener('change', updateFloorBySeniority);
+    seniorityMonthsInput.addEventListener('input', () => {
+      updateFloorBySeniority();
+      updateHypothesisUI();
+    });
+    seniorityMonthsInput.addEventListener('change', () => {
+      updateFloorBySeniority();
+      updateHypothesisUI();
+    });
+  }
+  
+  // Détecter si l'utilisateur modifie manuellement le plancher
+  const floorInput = document.getElementById('legal-extra-floor');
+  if (floorInput) {
+    floorInput.addEventListener('input', () => {
+      // Marquer comme modifié manuellement si l'utilisateur tape dans le champ
+      floorInput.dataset.manualEdit = 'true';
+    });
+    floorInput.addEventListener('blur', () => {
+      // Vérifier si la valeur est toujours un plancher suggéré après modification
+      const hypothesis = getCurrentHypothesis();
+      const suggestedValuesHyp1 = [70000, 90000, 110000, 130000];
+      const suggestedValuesHyp2 = [60000, 80000];
+      const allSuggestedValues = hypothesis === 1 ? suggestedValuesHyp1 : suggestedValuesHyp2;
+      const currentValue = parseNumber(floorInput);
+      
+      if (allSuggestedValues.includes(currentValue)) {
+        // Si c'est un plancher suggéré, on peut le mettre à jour automatiquement à nouveau
+        floorInput.dataset.manualEdit = 'false';
+      }
+    });
+  }
+  
+  // Détecter si l'utilisateur modifie manuellement le multiplicateur
+  if (multiplierInput) {
+    multiplierInput.addEventListener('input', () => {
+      // Marquer comme modifié manuellement si l'utilisateur tape dans le champ
+      multiplierInput.dataset.manualEdit = 'true';
+    });
+    multiplierInput.addEventListener('blur', () => {
+      // Vérifier si la valeur correspond à un multiplicateur automatique
+      const hypothesis = getCurrentHypothesis();
+      const seniorityYears = parseNumber(document.getElementById('seniority-years'));
+      const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
+      const totalYears = seniorityYears + seniorityMonths / 12;
+      const autoMultiplier = getMultiplierBySeniority(totalYears, hypothesis);
+      const currentValue = parseNumber(multiplierInput);
+      
+      // Si la valeur correspond au multiplicateur automatique, réinitialiser le flag
+      if (Math.abs(currentValue - autoMultiplier) < 0.01) {
+        multiplierInput.dataset.manualEdit = 'false';
+      }
+    });
   }
   
   // Initialisation du plafond à 300k
@@ -525,6 +837,10 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialisation de l'état des champs
   toggleBonusFields();
+  updateHypothesisUI();
+  
+  // Mise à jour initiale du plancher si une ancienneté est déjà saisie
+  updateFloorBySeniority();
   
   // Affichage de la version
   const versionEl = document.getElementById('app-version');
