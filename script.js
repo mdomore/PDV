@@ -123,22 +123,25 @@ function computeExtraLegal(refMonthly, totalYears, hypothesis, minMonths, custom
     monthsEq = totalYears * customMultiplier;
     detailParts.push(`${totalYears.toFixed(2)} ans × ${customMultiplier.toFixed(2)}`);
   } else if (hypothesis === 1) {
-    // Hypothèse 1 : Barème progressif
-    // Tranche 1-5 ans : de 0 à 5 ans (inclusif)
-    const years1to5 = Math.min(totalYears, 5);
-    // Tranche 5-10 ans : de 5 à 10 ans (inclusif)
-    const years5to10 = totalYears > 5 ? Math.min(totalYears - 5, 5) : 0;
-    // Tranche 10-15 ans : de 10 à 15 ans (inclusif)
-    const years10to15 = totalYears > 10 ? Math.min(totalYears - 10, 5) : 0;
-    // Tranche +15 ans : au-delà de 15 ans
-    const years15plus = totalYears > 15 ? totalYears - 15 : 0;
-    
-    monthsEq = years1to5 * 1.0 + years5to10 * 1.0 + years10to15 * 1.2 + years15plus * 1.5;
-    
-    if (years1to5 > 0) detailParts.push(`${years1to5.toFixed(2)} ans (1-5) × 1.0`);
-    if (years5to10 > 0) detailParts.push(`${years5to10.toFixed(2)} ans (5-10) × 1.0`);
-    if (years10to15 > 0) detailParts.push(`${years10to15.toFixed(2)} ans (10-15) × 1.2`);
-    if (years15plus > 0) detailParts.push(`${years15plus.toFixed(2)} ans (+15) × 1.5`);
+    // Hypothèse 1 : Le multiplicateur de la tranche atteinte s'applique à l'ensemble des années
+    // Ex. 16 ans → tranche +15 ans → 1,5 × 16 = 24 mois
+    let multiplier = 1.0;
+    let trancheLabel = '1-5 ans';
+    if (totalYears <= 5) {
+      multiplier = 1.0;
+      trancheLabel = '1-5 ans';
+    } else if (totalYears <= 10) {
+      multiplier = 1.0;
+      trancheLabel = '5-10 ans';
+    } else if (totalYears <= 15) {
+      multiplier = 1.2;
+      trancheLabel = '10-15 ans';
+    } else {
+      multiplier = 1.5;
+      trancheLabel = '+15 ans';
+    }
+    monthsEq = totalYears * multiplier;
+    detailParts.push(`${totalYears.toFixed(2)} ans × ${multiplier.toFixed(1)} (tranche ${trancheLabel})`);
   } else {
     // Hypothèse 2 : Base unique
     monthsEq = totalYears * 1.0;
@@ -659,7 +662,7 @@ function updateHypothesisUI() {
   // Mise à jour de la description
   if (descriptionEl) {
     if (hypothesis === 1) {
-      descriptionEl.textContent = 'Barème progressif selon l\'ancienneté : 1-5 ans (1 mois/an), 5-10 ans (1 mois/an), 10-15 ans (1,2 mois/an), +15 ans (1,5 mois/an).';
+      descriptionEl.textContent = 'Le multiplicateur de la tranche atteinte s\'applique à l\'ensemble des années. Ex. 16 ans (tranche +15 ans) → 1,5 × 16 = 24 mois. Tranches : 1-5 ans (1), 5-10 ans (1), 10-15 ans (1,2), +15 ans (1,5).';
     } else {
       descriptionEl.textContent = 'Base unique : 1 mois par année d\'ancienneté pour toutes les tranches.';
     }
@@ -695,7 +698,7 @@ function updateHypothesisUI() {
   
   if (multiplierDescEl) {
     if (hypothesis === 1) {
-      multiplierDescEl.textContent = 'Base : 1 mois/an. Calculé automatiquement selon le barème progressif et l\'ancienneté, modifiable manuellement.';
+      multiplierDescEl.textContent = 'Multiplicateur de la tranche atteinte × toutes les années (ex. 16 ans → 1,5 × 16). Modifiable manuellement.';
     } else {
       multiplierDescEl.textContent = 'Base : 1 mois par année d\'ancienneté. Modifiable manuellement.';
     }
