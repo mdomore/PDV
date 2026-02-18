@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Calculateur PDV – Indemnités</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app-header">
+        <h1>Calculateur PDV</h1>
+        <p>
+          Estimation des montants <strong>légal</strong>, <strong>extra-légal</strong> et <strong>congé de reclassement</strong> à partir de votre dernière fiche de paie annuelle.
+        </p>
+        <p class="disclaimer">
+          Cet outil est une aide indicative, non un conseil juridique. Adaptez les paramètres à votre accord d'entreprise / convention.
+        </p>
+      </header>
+
+      <section class="card layout">
+        <form id="pdv-form" class="form">
+          <h2>Données de base</h2>
+
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="annual-gross">Salaire brut annuel (€)</label>
+              <input
+                id="annual-gross"
+                type="number"
+                min="0"
+                step="any"
+                required
+                placeholder="Ex: 48000"
+              />
+            </div>
+
+            <div class="field">
+              <label for="seniority-years">Ancienneté (années complètes)</label>
+              <input
+                id="seniority-years"
+                type="number"
+                min="0"
+                step="1"
+                required
+                placeholder="Ex: 8"
+              />
+            </div>
+          </div>
+
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="seniority-months">Ancienneté (mois en plus)</label>
+              <input
+                id="seniority-months"
+                type="number"
+                min="0"
+                max="11"
+                step="1"
+                value="0"
+              />
+            </div>
+
+            <div class="field">
+              <label for="reference-months">
+                Salaire de référence (nb mois pour la moyenne)
+              </label>
+              <input
+                id="reference-months"
+                type="number"
+                min="1"
+                step="1"
+                value="12"
+              />
+              <small>En général 12 mois, adaptez selon votre accord.</small>
+            </div>
+          </div>
+
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="income-tax-rate">
+                Taux d'imposition sur le revenu (%)
+              </label>
+              <input
+                id="income-tax-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value="14.5"
+              />
+              <small>Tranche marginale d'imposition (pour calculer le net net).</small>
+            </div>
+          </div>
+
+          <h2>Indemnité légale ou conventionnelle</h2>
+          <p class="hint">
+            Calcul de l'ILL (Indemnité Légale de Licenciement) et/ou ICL (Indemnité Conventionnelle).
+            Le montant le plus favorable est retenu.
+          </p>
+
+          <h3>ILL - Indemnité Légale de Licenciement</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="ill-fraction-first">Fraction par année &le; 10 ans (en mois)</label>
+              <input
+                id="ill-fraction-first"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0.25"
+              />
+              <small>Code du travail : 1/4 de mois par année.</small>
+            </div>
+            <div class="field">
+              <label for="ill-fraction-after">Fraction par année &gt; 10 ans (en mois)</label>
+              <input
+                id="ill-fraction-after"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0.33"
+              />
+              <small>Code du travail : 1/3 de mois par année.</small>
+            </div>
+          </div>
+
+          <h3>ICL - Indemnité Conventionnelle (Casino)</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="icl-fraction-first">Fraction par année &le; 10 ans (en mois)</label>
+              <input
+                id="icl-fraction-first"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0.25"
+              />
+              <small>Convention collective Casino.</small>
+            </div>
+            <div class="field">
+              <label for="icl-fraction-after">Fraction par année &gt; 10 ans (en mois)</label>
+              <input
+                id="icl-fraction-after"
+                type="number"
+                min="0"
+                step="0.01"
+                value="0.33"
+              />
+              <small>Convention collective Casino.</small>
+            </div>
+          </div>
+
+          <h2>Paramètres indemnité extra-légale PDV</h2>
+          <div id="hypothesis-info" class="hypothesis-info">
+            <p class="hint" id="hypothesis-description">Le multiplicateur de la tranche atteinte s'applique à l'ensemble des années. Ex. 16 ans (tranche +15 ans) → 1,5 × 16 = 24 mois. Tranches : 1-5 ans (1), 5-10 ans (1), 10-15 ans (1,2), +15 ans (1,5).</p>
+            <p class="hint" style="margin-top: 8px; margin-bottom: 0;" id="floor-info"><strong>Planchers selon ancienneté :</strong> 1-5 ans : 70 000 € | 5-10 ans : 90 000 € | 10-15 ans : 110 000 € | +15 ans : 130 000 €</p>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="extra-multiplier">
+                Multiplicateur PDV (mois de salaire par année)
+              </label>
+              <input
+                id="extra-multiplier"
+                type="number"
+                min="0"
+                step="0.01"
+                value="1"
+              />
+              <small id="multiplier-description">Base : 1 mois par année. Calculé automatiquement selon l'hypothèse et l'ancienneté, modifiable manuellement.</small>
+            </div>
+            <div class="field">
+              <label for="extra-min-months">Plancher PDV (nb min de mois)</label>
+              <input
+                id="extra-min-months"
+                type="number"
+                min="0"
+                step="0.5"
+                value="0"
+              />
+              <small>Laissez 0 s'il n'y a pas de plancher.</small>
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="legal-extra-floor">
+                Plancher (légale + extra-légale) (€)
+              </label>
+              <input
+                id="legal-extra-floor"
+                type="number"
+                min="0"
+                step="any"
+                value="60000"
+                data-manual-edit="false"
+              />
+              <small>Plancher minimum pour la somme légale + extra-légale. Mis à jour automatiquement selon l'hypothèse et l'ancienneté.</small>
+            </div>
+            <div class="field">
+              <label for="legal-extra-ceiling">
+                Plafond (légale + extra-légale) (€)
+              </label>
+              <input
+                id="legal-extra-ceiling"
+                type="number"
+                min="0"
+                step="any"
+                value="300000"
+              />
+              <small>Plafond maximum pour la somme légale + extra-légale (par défaut: 300k).</small>
+            </div>
+          </div>
+
+          <h2>Congé de reclassement (si rupture anticipée)</h2>
+          <p class="hint">
+            Le congé de reclassement se compose de deux parties : pré-avis et congé proprement dit.
+            <strong>Si le congé est réduit (sortie avant la fin), 80% de la valeur restante du congé est payée.</strong>
+            <br><strong>L'allocation de reclassement (après préavis) bénéficie de cotisations sociales allégées.</strong>
+          </p>
+
+          <h3>Pré-avis</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-preavis-months">
+                Durée pré-avis (mois)
+              </label>
+              <input
+                id="reclass-preavis-months"
+                type="number"
+                min="0"
+                step="0.5"
+                value="3"
+              />
+            </div>
+            <div class="field">
+              <label for="reclass-preavis-rate">
+                Taux d'allocation pré-avis (% du brut)
+              </label>
+              <input
+                id="reclass-preavis-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="100"
+              />
+            </div>
+          </div>
+
+          <h3>Congé de reclassement</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-leave-months">
+                Durée congé (mois)
+              </label>
+              <input
+                id="reclass-leave-months"
+                type="number"
+                min="0"
+                step="0.5"
+                value="9"
+              />
+            </div>
+            <div class="field">
+              <label for="reclass-leave-rate">
+                Taux d'allocation congé (% du brut)
+              </label>
+              <input
+                id="reclass-leave-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="80"
+              />
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-reduced-rate">
+                % de la valeur restante si congé réduit
+              </label>
+              <input
+                id="reclass-reduced-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value="80"
+              />
+              <small>Pourcentage payé de la valeur restante si le congé est réduit (sortie avant la fin).</small>
+            </div>
+          </div>
+
+          <h3>Cotisations sociales - Allocation de reclassement (après préavis)</h3>
+          <p class="hint" style="font-size: 0.75rem; margin-bottom: 8px;">
+            L'allocation de reclassement bénéficie de cotisations allégées (~13,4% vs ~21% habituellement).
+          </p>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="leave-csg-crds-rate">
+                CSG/CRDS (%)
+              </label>
+              <input
+                id="leave-csg-crds-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value="6.7"
+              />
+              <small>Taux allégé (vs 9,7% habituellement).</small>
+            </div>
+            <div class="field">
+              <label for="leave-prevoyance-rate">
+                Cotisation prévoyance TB (%)
+              </label>
+              <input
+                id="leave-prevoyance-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                value="0.825"
+              />
+              <small>Jusqu'à PMSS.</small>
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="leave-mutuelle-rate">
+                Cotisation mutuelle (%)
+              </label>
+              <input
+                id="leave-mutuelle-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="0"
+              />
+              <small>0% - prise en charge par l'employeur.</small>
+            </div>
+            <div class="field">
+              <label for="leave-retraite-ta-rate">
+                Retraite complémentaire TA (%)
+              </label>
+              <input
+                id="leave-retraite-ta-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="4.92"
+              />
+              <small>Jusqu'à PMSS.</small>
+            </div>
+          </div>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="leave-retraite-tb-rate">
+                Retraite complémentaire TB (%)
+              </label>
+              <input
+                id="leave-retraite-tb-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="9.72"
+              />
+              <small>Au-delà de PMSS.</small>
+            </div>
+            <div class="field">
+              <label for="leave-cet-rate">
+                CET T1 & T2 (%)
+              </label>
+              <input
+                id="leave-cet-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value="0.14"
+              />
+              <small>Contribution Equilibre Technique.</small>
+            </div>
+          </div>
+
+          <h3>Durée consommée</h3>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label for="reclass-preavis-used">
+                Pré-avis consommé (mois)
+              </label>
+              <input
+                id="reclass-preavis-used"
+                type="number"
+                min="0"
+                step="0.5"
+                value="0"
+              />
+            </div>
+            <div class="field">
+              <label for="reclass-leave-used">
+                Congé consommé (mois)
+              </label>
+              <input
+                id="reclass-leave-used"
+                type="number"
+                min="0"
+                step="0.5"
+                value="0"
+              />
+            </div>
+          </div>
+
+          <h2>Primes PDV</h2>
+          <div class="field-group two-cols">
+            <div class="field">
+              <label class="checkbox-label" for="training-bonus-enabled">
+                <input
+                  id="training-bonus-enabled"
+                  type="checkbox"
+                />
+                <span>Activer la prime de formation</span>
+              </label>
+              <input
+                id="training-bonus"
+                type="number"
+                min="0"
+                step="any"
+                value="10000"
+              />
+              <small>Prime unique pour formation (€ HT).</small>
+            </div>
+            <div class="field">
+              <label class="checkbox-label" for="business-creation-bonus-enabled">
+                <input
+                  id="business-creation-bonus-enabled"
+                  type="checkbox"
+                />
+                <span>Activer la prime création d'entreprise</span>
+              </label>
+              <input
+                id="business-creation-bonus"
+                type="number"
+                min="0"
+                step="any"
+                value="20000"
+              />
+              <small id="business-bonus-description">Prime totale payée en 2 fois (€).</small>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button type="submit">Calculer</button>
+            <button type="button" id="reset-btn" class="secondary">Réinitialiser</button>
+          </div>
+        </form>
+
+        <section class="results" id="results">
+          <h2>Résultats estimatifs</h2>
+
+          <div class="result-grid">
+            <article class="result-block">
+              <h3>Indemnité légale</h3>
+              <p class="amount" id="legal-amount">0 €</p>
+              <p class="detail" id="legal-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Indemnité extra-légale PDV</h3>
+              <p class="amount" id="extra-amount">0 €</p>
+              <p class="detail" id="extra-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Indemnité congé de reclassement (non consommé)</h3>
+              <p class="amount" id="reclass-amount">0 €</p>
+              <p class="detail" id="reclass-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Prime de formation</h3>
+              <p class="amount" id="training-amount">0 €</p>
+              <p class="detail" id="training-detail"></p>
+            </article>
+
+            <article class="result-block">
+              <h3>Prime création d'entreprise</h3>
+              <p class="amount" id="business-amount">0 €</p>
+              <p class="detail" id="business-detail"></p>
+            </article>
+          </div>
+
+          <div class="result-legal-extra-sum">
+            <h3>Somme (légale + extra-légale)</h3>
+            <p class="amount" id="legal-extra-sum-amount">0 €</p>
+            <p class="detail" id="legal-extra-sum-detail" style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;"></p>
+          </div>
+
+          <div class="result-subtotal">
+            <h3>Total avant ajustement (légale + extra-légale)</h3>
+            <p class="amount" id="subtotal-amount">0 €</p>
+            <p class="detail" style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">
+              (avant application plancher/plafond sur légale + extra-légale)
+            </p>
+          </div>
+
+          <div class="result-total" id="result-total-container">
+            <h3>Total estimé (brut)</h3>
+            <p class="amount total" id="total-amount">0 €</p>
+            <p class="detail" id="total-detail"></p>
+            <div class="floor-ceiling-info" id="floor-ceiling-info"></div>
+          </div>
+
+          <div class="result-total-net">
+            <h3>Total estimé (net avant impôt)</h3>
+            <p class="amount total" id="total-net-amount">0 €</p>
+            <p class="detail" id="total-net-detail" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></p>
+          </div>
+
+          <div class="result-total-net-net">
+            <h3>Total estimé (net net après impôt)</h3>
+            <p class="amount total" id="total-net-net-amount">0 €</p>
+            <p class="detail" id="total-net-net-detail" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></p>
+          </div>
+
+          <div class="tax-info">
+            <h4>Règles fiscales et charges sociales</h4>
+            <ul>
+              <li><strong>Indemnités légales/conventionnelles (ILL/ICL)</strong> : Exonérées de charges sociales (jusqu'à 2 PASS = 96K€) et exonérées d'impôts</li>
+              <li><strong>Indemnité supra-légale</strong> : CSG/CRDS à 9,7% uniquement - Exonérée d'impôts</li>
+              <li><strong>Pré-avis</strong> : Charges sociales normales (~21%) - Soumis à l'impôt sur le revenu</li>
+              <li><strong>Allocation de reclassement</strong> : Cotisations allégées (~13,4%) - Soumise à l'impôt sur le revenu</li>
+              <li><strong>Primes (formation et création d'entreprise)</strong> : Aucune charge sociale déduite - Soumises à l'impôt sur le revenu</li>
+            </ul>
+          </div>
+          <p class="disclaimer small">
+            Les montants sont affichés en brut. L'impôt sur le revenu est spécifique à chacun (tranche marginale).
+            Vérifiez toujours avec les textes officiels ou un expert.
+          </p>
+        </section>
+      </section>
+
+      <footer class="app-footer">
+        <p>Outil indicatif pour simulations PDV – HTML/CSS/JavaScript uniquement (aucune donnée stockée).</p>
+        <p class="version-info">Version <span id="app-version">-</span></p>
+      </footer>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
+
