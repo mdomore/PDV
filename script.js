@@ -22,57 +22,32 @@ function clamp(value, min, max) {
   return value;
 }
 
-function getCurrentHypothesis() {
-  const hypothesisInput = document.getElementById('current-hypothesis');
-  return hypothesisInput ? parseInt(hypothesisInput.value) : 1;
-}
+// Version retenue : Accord signé uniquement
 
-function getMultiplierBySeniority(totalYears, hypothesis) {
-  if (hypothesis === 1) {
-    // Hypothèse 1 : Barème progressif
-    if (totalYears <= 5) {
-      return 1.0; // 1 à 5 ans : 1 mois/an
-    } else if (totalYears <= 10) {
-      return 1.0; // 5 à 10 ans : 1 mois/an
-    } else if (totalYears <= 15) {
-      return 1.2; // 10 à 15 ans : 1,2 mois/an
-    } else {
-      return 1.5; // +15 ans : 1,5 mois/an
-    }
+function getMultiplierBySeniority(totalYears) {
+  // Accord signé : multiplicateur selon la tranche atteinte
+  if (totalYears <= 5) {
+    return 1.0; // 1 à 5 ans
+  } else if (totalYears <= 10) {
+    return 1.0; // 5 à 10 ans
+  } else if (totalYears <= 15) {
+    return 1.2; // 10 à 15 ans
   } else {
-    // Hypothèse 2 : Base unique
-    return 1.0; // Toutes tranches : 1 mois/an
+    return 1.5; // +15 ans
   }
 }
 
-function getFloorBySeniority(totalYears, hypothesis) {
-  if (hypothesis === 1) {
-    // Hypothèse 1 : Accord signé
-    if (totalYears <= 5) {
-      return 70000; // 1 à 5 ans (inclusif)
-    } else if (totalYears <= 10) {
-      return 90000; // 5 à 10 ans (inclusif)
-    } else if (totalYears <= 15) {
-      return 110000; // 10 à 15 ans (inclusif)
-    } else {
-      return 130000; // +15 ans
-    }
+function getFloorBySeniority(totalYears) {
+  // Accord signé : planchers selon ancienneté
+  if (totalYears <= 5) {
+    return 70000; // 1 à 5 ans (inclusif)
+  } else if (totalYears <= 10) {
+    return 90000; // 5 à 10 ans (inclusif)
+  } else if (totalYears <= 15) {
+    return 110000; // 10 à 15 ans (inclusif)
   } else {
-    // Hypothèse 2 : PDV unilatéral
-    if (totalYears <= 5) {
-      return 60000; // 1 à 5 ans (inclusif)
-    } else if (totalYears <= 10) {
-      return 80000; // 5 à 10 ans (inclusif)
-    } else if (totalYears <= 15) {
-      return 80000; // 10 à 15 ans (inclusif)
-    } else {
-      return 80000; // +15 ans
-    }
+    return 130000; // +15 ans
   }
-}
-
-function getBusinessCreationBonus(hypothesis) {
-  return hypothesis === 1 ? 20000 : 10000;
 }
 
 function computeLegalIndemnity(refMonthly, years, months, illFracFirst, illFracAfter, iclFracFirst, iclFracAfter) {
@@ -113,8 +88,8 @@ function computeLegalIndemnity(refMonthly, years, months, illFracFirst, illFracA
   };
 }
 
-function computeExtraLegal(refMonthly, totalYears, hypothesis, minMonths, customMultiplier = null) {
-  // Calcul par tranches pour Hypothèse 1 (barème progressif)
+function computeExtraLegal(refMonthly, totalYears, minMonths, customMultiplier = null) {
+  // Accord signé : multiplicateur de la tranche atteinte appliqué à l'ensemble des années
   let monthsEq = 0;
   let detailParts = [];
   
@@ -122,8 +97,8 @@ function computeExtraLegal(refMonthly, totalYears, hypothesis, minMonths, custom
   if (customMultiplier !== null && customMultiplier > 0) {
     monthsEq = totalYears * customMultiplier;
     detailParts.push(`${totalYears.toFixed(2)} ans × ${customMultiplier.toFixed(2)}`);
-  } else if (hypothesis === 1) {
-    // Hypothèse 1 : Le multiplicateur de la tranche atteinte s'applique à l'ensemble des années
+  } else {
+    // Le multiplicateur de la tranche atteinte s'applique à l'ensemble des années
     // Ex. 16 ans → tranche +15 ans → 1,5 × 16 = 24 mois
     let multiplier = 1.0;
     let trancheLabel = '1-5 ans';
@@ -142,10 +117,6 @@ function computeExtraLegal(refMonthly, totalYears, hypothesis, minMonths, custom
     }
     monthsEq = totalYears * multiplier;
     detailParts.push(`${totalYears.toFixed(2)} ans × ${multiplier.toFixed(1)} (tranche ${trancheLabel})`);
-  } else {
-    // Hypothèse 2 : Base unique
-    monthsEq = totalYears * 1.0;
-    detailParts.push(`${totalYears.toFixed(2)} ans × 1.0`);
   }
   
   monthsEq = Math.max(monthsEq, minMonths);
@@ -252,7 +223,6 @@ function handleSubmit(event) {
   const iclFracFirst = parseNumber(document.getElementById('icl-fraction-first'));
   const iclFracAfter = parseNumber(document.getElementById('icl-fraction-after'));
 
-  const hypothesis = getCurrentHypothesis();
   const extraMinMonths = parseNumber(document.getElementById('extra-min-months'));
   const legalExtraFloor = parseNumber(document.getElementById('legal-extra-floor'));
   const legalExtraCeiling = parseNumber(document.getElementById('legal-extra-ceiling'));
@@ -303,36 +273,26 @@ function handleSubmit(event) {
   
   if (multiplierInput) {
     const manualMultiplier = parseNumber(multiplierInput);
-    const autoMultiplier = getMultiplierBySeniority(totalYears, hypothesis);
+    const autoMultiplier = getMultiplierBySeniority(totalYears);
     
-    // Vérifier si l'utilisateur a modifié manuellement le multiplicateur
-    // On considère qu'il est modifié si :
-    // - La valeur est différente du multiplicateur automatique
-    // - ET la valeur n'est pas 0 ou vide
-    // - ET ce n'est pas juste une valeur arrondie du multiplicateur automatique
     const isManuallyEdited = multiplierInput.dataset.manualEdit === 'true';
     const isDifferentFromAuto = Math.abs(manualMultiplier - autoMultiplier) > 0.01;
     
     if (isManuallyEdited || (manualMultiplier > 0 && isDifferentFromAuto)) {
-      // Utiliser la valeur manuelle
       multiplier = manualMultiplier;
       useCustomMultiplier = true;
     } else {
-      // Utiliser le calcul automatique et mettre à jour le champ
       multiplier = autoMultiplier;
       multiplierInput.value = multiplier.toFixed(2);
       multiplierInput.dataset.manualEdit = 'false';
     }
   } else {
-    multiplier = getMultiplierBySeniority(totalYears, hypothesis);
+    multiplier = getMultiplierBySeniority(totalYears);
   }
   
-  // Si un multiplicateur personnalisé est utilisé, passer null pour utiliser le calcul simple
-  // Sinon, passer null pour utiliser le barème progressif automatique
   const extraRaw = computeExtraLegal(
     refMonthly, 
     totalYears, 
-    hypothesis, 
     extraMinMonths, 
     useCustomMultiplier ? multiplier : null
   );
@@ -616,18 +576,14 @@ function updateFloorBySeniority(forceUpdate = false) {
   const seniorityYears = parseNumber(document.getElementById('seniority-years'));
   const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
   const totalYears = seniorityYears + seniorityMonths / 12;
-  const hypothesis = getCurrentHypothesis();
   const floorInput = document.getElementById('legal-extra-floor');
   
   if (!floorInput) return;
   
-  const suggestedFloor = getFloorBySeniority(totalYears, hypothesis);
+  const suggestedFloor = getFloorBySeniority(totalYears);
   const currentValue = parseNumber(floorInput);
   
-  // Liste des planchers suggérés selon l'hypothèse
-  const suggestedValuesHyp1 = [70000, 90000, 110000, 130000];
-  const suggestedValuesHyp2 = [60000, 80000];
-  const allSuggestedValues = hypothesis === 1 ? suggestedValuesHyp1 : suggestedValuesHyp2;
+  const allSuggestedValues = [70000, 90000, 110000, 130000];
   
   // Vérifier si l'utilisateur a modifié manuellement le champ avec une valeur personnalisée
   const isManuallyEdited = floorInput.dataset.manualEdit === 'true';
@@ -651,74 +607,42 @@ function updateFloorBySeniority(forceUpdate = false) {
 }
 
 function updateHypothesisUI() {
-  const hypothesis = getCurrentHypothesis();
-  const descriptionEl = document.getElementById('hypothesis-description');
-  const floorInfoEl = document.getElementById('floor-info');
   const multiplierInput = document.getElementById('extra-multiplier');
   const multiplierDescEl = document.getElementById('multiplier-description');
   const businessBonusInput = document.getElementById('business-creation-bonus');
   const businessBonusDescEl = document.getElementById('business-bonus-description');
   
-  // Mise à jour de la description
-  if (descriptionEl) {
-    if (hypothesis === 1) {
-      descriptionEl.textContent = 'Le multiplicateur de la tranche atteinte s\'applique à l\'ensemble des années. Ex. 16 ans (tranche +15 ans) → 1,5 × 16 = 24 mois. Tranches : 1-5 ans (1), 5-10 ans (1), 10-15 ans (1,2), +15 ans (1,5).';
-    } else {
-      descriptionEl.textContent = 'Base unique : 1 mois par année d\'ancienneté pour toutes les tranches.';
-    }
-  }
-  
-  // Mise à jour de l'affichage des planchers
-  if (floorInfoEl) {
-    if (hypothesis === 1) {
-      floorInfoEl.innerHTML = '<strong>Planchers selon ancienneté :</strong> 1-5 ans : 70 000 € | 5-10 ans : 90 000 € | 10-15 ans : 110 000 € | +15 ans : 130 000 €';
-    } else {
-      floorInfoEl.innerHTML = '<strong>Planchers selon ancienneté :</strong> 1-5 ans : 60 000 € | 5-10 ans : 80 000 € | 10-15 ans : 80 000 € | +15 ans : 80 000 €';
-    }
-  }
-  
-  // Mise à jour du multiplicateur selon l'ancienneté (seulement si pas modifié manuellement)
   const seniorityYears = parseNumber(document.getElementById('seniority-years'));
   const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
   const totalYears = seniorityYears + seniorityMonths / 12;
-  const autoMultiplier = getMultiplierBySeniority(totalYears, hypothesis);
+  const autoMultiplier = getMultiplierBySeniority(totalYears);
   
   if (multiplierInput) {
     const currentMultiplier = parseNumber(multiplierInput);
-    // Mettre à jour seulement si la valeur actuelle correspond au multiplicateur automatique précédent
-    // ou si c'est la valeur par défaut (1.0)
     const isAutoValue = currentMultiplier === 1.0 || currentMultiplier === autoMultiplier || 
-                        (hypothesis === 1 && [1.0, 1.2, 1.5].includes(currentMultiplier)) ||
-                        (hypothesis === 2 && currentMultiplier === 1.0);
+                        [1.0, 1.2, 1.5].includes(currentMultiplier) ||
+                        currentMultiplier === 0;
     
-    if (isAutoValue || currentMultiplier === 0) {
+    if (isAutoValue) {
       multiplierInput.value = autoMultiplier.toFixed(2);
     }
   }
   
   if (multiplierDescEl) {
-    if (hypothesis === 1) {
-      multiplierDescEl.textContent = 'Multiplicateur de la tranche atteinte × toutes les années (ex. 16 ans → 1,5 × 16). Modifiable manuellement.';
-    } else {
-      multiplierDescEl.textContent = 'Base : 1 mois par année d\'ancienneté. Modifiable manuellement.';
-    }
+    multiplierDescEl.textContent = 'Multiplicateur de la tranche atteinte × toutes les années (ex. 16 ans → 1,5 × 16). Modifiable manuellement.';
   }
   
-  // Mise à jour du plancher (force update lors du changement d'hypothèse)
   updateFloorBySeniority(true);
   
-  // Mise à jour de la prime création d'entreprise
-  const businessBonus = getBusinessCreationBonus(hypothesis);
   if (businessBonusInput) {
     const currentValue = parseNumber(businessBonusInput);
-    // Mettre à jour seulement si c'est une valeur par défaut
     if (currentValue === 10000 || currentValue === 20000 || currentValue === 0) {
-      businessBonusInput.value = businessBonus;
+      businessBonusInput.value = 20000;
     }
   }
   
   if (businessBonusDescEl) {
-    businessBonusDescEl.textContent = `Prime totale payée en 2 fois (€). ${hypothesis === 1 ? 'Hypothèse 1 : 20 000 €' : 'Hypothèse 2 : 10 000 €'}`;
+    businessBonusDescEl.textContent = 'Prime totale payée en 2 fois (€). Accord signé : 20 000 €.';
   }
 }
 
@@ -731,7 +655,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const seniorityMonthsInput = document.getElementById('seniority-months');
   const ceilingInput = document.getElementById('legal-extra-ceiling');
   const multiplierInput = document.getElementById('extra-multiplier');
-  const tabButtons = document.querySelectorAll('.tab-button');
 
   if (form) {
     form.addEventListener('submit', handleSubmit);
@@ -739,25 +662,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (resetBtn) {
     resetBtn.addEventListener('click', handleReset);
   }
-  
-  // Gestion des onglets
-  tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const hypothesis = parseInt(button.dataset.hypothesis);
-      const hypothesisInput = document.getElementById('current-hypothesis');
-      
-      // Mise à jour de l'état actif
-      tabButtons.forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
-      
-      if (hypothesisInput) {
-        hypothesisInput.value = hypothesis;
-      }
-      
-      // Mise à jour de l'interface selon l'hypothèse
-      updateHypothesisUI();
-    });
-  });
   
   // Gestion de l'activation/désactivation des champs de primes
   if (trainingCheckbox) {
@@ -797,15 +701,10 @@ document.addEventListener('DOMContentLoaded', () => {
       floorInput.dataset.manualEdit = 'true';
     });
     floorInput.addEventListener('blur', () => {
-      // Vérifier si la valeur est toujours un plancher suggéré après modification
-      const hypothesis = getCurrentHypothesis();
-      const suggestedValuesHyp1 = [70000, 90000, 110000, 130000];
-      const suggestedValuesHyp2 = [60000, 80000];
-      const allSuggestedValues = hypothesis === 1 ? suggestedValuesHyp1 : suggestedValuesHyp2;
+      const allSuggestedValues = [70000, 90000, 110000, 130000];
       const currentValue = parseNumber(floorInput);
       
       if (allSuggestedValues.includes(currentValue)) {
-        // Si c'est un plancher suggéré, on peut le mettre à jour automatiquement à nouveau
         floorInput.dataset.manualEdit = 'false';
       }
     });
@@ -818,15 +717,12 @@ document.addEventListener('DOMContentLoaded', () => {
       multiplierInput.dataset.manualEdit = 'true';
     });
     multiplierInput.addEventListener('blur', () => {
-      // Vérifier si la valeur correspond à un multiplicateur automatique
-      const hypothesis = getCurrentHypothesis();
       const seniorityYears = parseNumber(document.getElementById('seniority-years'));
       const seniorityMonths = parseNumber(document.getElementById('seniority-months'));
       const totalYears = seniorityYears + seniorityMonths / 12;
-      const autoMultiplier = getMultiplierBySeniority(totalYears, hypothesis);
+      const autoMultiplier = getMultiplierBySeniority(totalYears);
       const currentValue = parseNumber(multiplierInput);
       
-      // Si la valeur correspond au multiplicateur automatique, réinitialiser le flag
       if (Math.abs(currentValue - autoMultiplier) < 0.01) {
         multiplierInput.dataset.manualEdit = 'false';
       }

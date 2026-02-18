@@ -18,20 +18,8 @@
         </p>
       </header>
 
-      <div class="tabs-container">
-        <div class="tabs">
-          <button type="button" class="tab-button active" data-hypothesis="1">
-            Hypothèse 1 : Accord signé
-          </button>
-          <button type="button" class="tab-button" data-hypothesis="2">
-            Hypothèse 2 : PDV unilatéral
-          </button>
-        </div>
-      </div>
-
       <section class="card layout">
         <form id="pdv-form" class="form">
-          <input type="hidden" id="current-hypothesis" value="1">
           <h2>Données de base</h2>
 
           <div class="field-group two-cols">
@@ -165,8 +153,8 @@
 
           <h2>Paramètres indemnité extra-légale PDV</h2>
           <div id="hypothesis-info" class="hypothesis-info">
-            <p class="hint" id="hypothesis-description"></p>
-            <p class="hint" style="margin-top: 8px; margin-bottom: 0;" id="floor-info"></p>
+            <p class="hint" id="hypothesis-description">Le multiplicateur de la tranche atteinte s'applique à l'ensemble des années. Ex. 16 ans (tranche +15 ans) → 1,5 × 16 = 24 mois. Tranches : 1-5 ans (1), 5-10 ans (1), 10-15 ans (1,2), +15 ans (1,5).</p>
+            <p class="hint" style="margin-top: 8px; margin-bottom: 0;" id="floor-info"><strong>Planchers selon ancienneté :</strong> 1-5 ans : 70 000 € | 5-10 ans : 90 000 € | 10-15 ans : 110 000 € | +15 ans : 130 000 €</p>
           </div>
           <div class="field-group two-cols">
             <div class="field">
