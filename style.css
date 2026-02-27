@@ -368,6 +368,68 @@ button.secondary:hover {
   color: var(--muted);
 }
 
+.result-monthly-reclass {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.result-monthly-reclass[style*="display: none"] {
+  margin-top: 0;
+}
+
+.result-monthly-reclass h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.monthly-block {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.monthly-block.total-monthly {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.monthly-block h4 {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.monthly-block h4 span {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.monthly-line {
+  margin: 4px 0;
+  font-size: 0.82rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.monthly-line .label {
+  color: var(--muted);
+}
+
 .result-legal-extra-sum {
   margin-top: 12px;
   padding: 10px 11px;

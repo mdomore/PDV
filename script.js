@@ -134,10 +134,11 @@ function computeExtraLegal(refMonthly, totalYears, minMonths, customMultiplier =
 }
 
 function computeReclassification(
-  refMonthly,
+  preavisBaseMonthly,
   preavisMonths,
   preavisRate,
   preavisUsed,
+  leaveRefMonthly,
   leaveMonths,
   leaveRate,
   leaveUsed,
@@ -151,16 +152,19 @@ function computeReclassification(
 ) {
   // Calcul pré-avis non consommé (brut)
   const preavisRemaining = Math.max(preavisMonths - preavisUsed, 0);
-  const preavisMonthlyAllowance = refMonthly * (preavisRate / 100);
+  const preavisMonthlyAllowance = preavisBaseMonthly * (preavisRate / 100);
   const preavisAmountBrut = preavisMonthlyAllowance * preavisRemaining;
 
   // Calcul congé non consommé (brut)
   // Si le congé est réduit (employé sort avant la fin), 80% de la valeur restante est payée
   const leaveRemaining = Math.max(leaveMonths - leaveUsed, 0);
-  const leaveMonthlyAllowance = refMonthly * (leaveRate / 100);
+  const leaveMonthlyAllowance = leaveRefMonthly * (leaveRate / 100);
   const leaveAmountRaw = leaveMonthlyAllowance * leaveRemaining;
-  // Application du pourcentage de réduction si le congé est réduit (mois restants > 0)
-  const leaveAmountBrut = leaveRemaining > 0 ? leaveAmountRaw * (reducedRate / 100) : leaveAmountRaw;
+  // Application du pourcentage de réduction uniquement si le congé a été entamé puis réduit
+  const leaveAmountBrut =
+    leaveRemaining > 0 && leaveUsed > 0
+      ? leaveAmountRaw * (reducedRate / 100)
+      : leaveAmountRaw;
 
   // Calcul des cotisations sociales sur l'allocation de reclassement (après préavis)
   // Cotisations allégées sur allocation de reclassement (~13,4% vs ~21% habituellement)
@@ -254,10 +258,17 @@ function handleSubmit(event) {
   }
 
   const refMonthly = annualGross / refMonths;
+  const baseMonthlyInput = parseNumber(document.getElementById('base-monthly'));
+  const legalRefMonthlyInput = parseNumber(document.getElementById('legal-ref-monthly'));
+  const extraRefMonthlyInput = parseNumber(document.getElementById('extra-ref-monthly'));
+
+  const baseMonthly = baseMonthlyInput > 0 ? baseMonthlyInput : refMonthly;
+  const legalRefMonthly = legalRefMonthlyInput > 0 ? legalRefMonthlyInput : refMonthly;
+  const extraRefMonthly = extraRefMonthlyInput > 0 ? extraRefMonthlyInput : refMonthly;
   const totalYears = seniorityYears + seniorityMonths / 12;
 
   const legal = computeLegalIndemnity(
-    refMonthly,
+    legalRefMonthly,
     seniorityYears,
     seniorityMonths,
     illFracFirst,
@@ -291,7 +302,7 @@ function handleSubmit(event) {
   }
   
   const extraRaw = computeExtraLegal(
-    refMonthly, 
+    extraRefMonthly, 
     totalYears, 
     extraMinMonths, 
     useCustomMultiplier ? multiplier : null
@@ -304,10 +315,11 @@ function handleSubmit(event) {
   const legalExtraAdjusted = clamp(legalExtraSum, MIN_LEGAL_EXTRA, MAX_LEGAL_EXTRA);
 
   const reclass = computeReclassification(
-    refMonthly,
+    baseMonthly,
     reclassPreavisMonths,
     reclassPreavisRate,
     reclassPreavisUsed,
+    legalRefMonthly,
     reclassLeaveMonths,
     reclassLeaveRate,
     reclassLeaveUsed,
@@ -327,20 +339,18 @@ function handleSubmit(event) {
   // CALCUL DES CHARGES SOCIALES ET IMPÔTS
   // ============================================================================
   
-  // Répartition proportionnelle après application plancher/plafond
-  // On préserve les règles fiscales de chaque composante
-  const legalRatio = legalExtraSum > 0 ? legal.amount / legalExtraSum : 0;
-  const extraRatio = legalExtraSum > 0 ? extraRaw.amount / legalExtraSum : 0;
-  const legalAdjusted = legalRatio * legalExtraAdjusted;
-  const extraAdjusted = extraRatio * legalExtraAdjusted;
+  // Légal = montant légal inchangé. Extra-légal = différence (total ajusté - légal).
+  // La CSG/CRDS ne s'applique que sur la part extra-légale.
+  const legalAdjusted = legal.amount;
+  const extraAdjusted = Math.max(legalExtraAdjusted - legal.amount, 0);
   
   // 1. INDEMNITÉS LÉGALES/CONVENTIONNELLES (ILL/ICL)
   // - Charges sociales : EXONÉRÉES (jusqu'à 2 PASS = 96K€)
   // - Impôts : EXONÉRÉS
   const legalNet = legalAdjusted;
   
-  // 2. INDEMNITÉ SUPRA-LÉGALE (extra-légale)
-  // - Charges sociales : CSG/CRDS uniquement à 9,7%
+  // 2. INDEMNITÉ SUPRA-LÉGALE (extra-légale = différence plancher/plafond - légal)
+  // - Charges sociales : CSG/CRDS uniquement à 9,7%, appliquée juste après sur cette part
   // - Impôts : EXONÉRÉS
   const SUPRA_LEGAL_CSG_CRDS_RATE = 9.7;
   const extraNet = extraAdjusted - (extraAdjusted * (SUPRA_LEGAL_CSG_CRDS_RATE / 100));
@@ -348,7 +358,7 @@ function handleSubmit(event) {
   // 3. PRÉ-AVIS (congé de reclassement)
   // - Charges sociales : Charges normales estimées à 21% (CSG/CRDS + cotisations)
   // - Impôts : SOUMIS à l'impôt sur le revenu (tranche marginale)
-  const PREAVIS_CHARGES_RATE = 21; // Estimation charges normales
+  const PREAVIS_CHARGES_RATE = 23; // Estimation charges normales (simulation employeur)
   const preavisNet = reclass.preavisAmountBrut > 0 
     ? reclass.preavisAmountBrut - (reclass.preavisAmountBrut * (PREAVIS_CHARGES_RATE / 100))
     : 0;
@@ -416,8 +426,53 @@ function handleSubmit(event) {
   } else {
     legalExtraSumDetailEl.textContent = `Aucun ajustement (plancher/plafond)`;
   }
+  
+  // Affichage : ordre légal puis extra-légal avec CSG/CRDS 9,7 % uniquement sur la part extra-légale
+  const legalExtraCsgDetailEl = document.getElementById('legal-extra-csg-detail');
+  if (legalExtraCsgDetailEl) {
+    if (extraAdjusted > 0) {
+      legalExtraCsgDetailEl.textContent = `Légal : ${formatCurrency(legalAdjusted)} (sans charges). Puis part extra-légale : ${formatCurrency(extraAdjusted)} avec CSG/CRDS 9,7 % → net ${formatCurrency(extraNet)}.`;
+      legalExtraCsgDetailEl.style.display = '';
+    } else {
+      legalExtraCsgDetailEl.textContent = '';
+      legalExtraCsgDetailEl.style.display = 'none';
+    }
+  }
 
   document.getElementById('reclass-amount').textContent = formatCurrency(reclass.amount);
+  
+  // Mensuels préavis et congé + total
+  const preavisRemaining = reclass.preavisRemaining || 0;
+  const leaveRemaining = reclass.leaveRemaining || 0;
+  const sectionMonthly = document.getElementById('monthly-reclass-section');
+  if (sectionMonthly) {
+    if (preavisRemaining > 0 || leaveRemaining > 0) {
+      sectionMonthly.style.display = '';
+      const preavisMensuelBrut = preavisRemaining > 0 ? reclass.preavisAmountBrut / preavisRemaining : 0;
+      const preavisMensuelNet = preavisRemaining > 0 ? preavisNet / preavisRemaining : 0;
+      const preavisMensuelNetNet = preavisRemaining > 0 ? preavisNetNet / preavisRemaining : 0;
+      const leaveMensuelBrut = leaveRemaining > 0 ? reclass.leaveAmountBrut / leaveRemaining : 0;
+      const leaveMensuelNet = leaveRemaining > 0 ? leaveNet / leaveRemaining : 0;
+      const leaveMensuelNetNet = leaveRemaining > 0 ? leaveNetNet / leaveRemaining : 0;
+      const reclassTotalBrut = reclass.preavisAmountBrut + reclass.leaveAmountBrut;
+      const reclassTotalNet = preavisNet + leaveNet;
+      const reclassTotalNetNet = preavisNetNet + leaveNetNet;
+      
+      document.getElementById('preavis-months-label').textContent = preavisRemaining > 0 ? `(${preavisRemaining.toFixed(1)} mois)` : '(0 mois)';
+      document.getElementById('leave-months-label').textContent = leaveRemaining > 0 ? `(${leaveRemaining.toFixed(1)} mois)` : '(0 mois)';
+      document.getElementById('preavis-mensuel-brut').textContent = formatCurrency(preavisMensuelBrut);
+      document.getElementById('preavis-mensuel-net').textContent = formatCurrency(preavisMensuelNet);
+      document.getElementById('preavis-mensuel-netnet').textContent = formatCurrency(preavisMensuelNetNet);
+      document.getElementById('leave-mensuel-brut').textContent = formatCurrency(leaveMensuelBrut);
+      document.getElementById('leave-mensuel-net').textContent = formatCurrency(leaveMensuelNet);
+      document.getElementById('leave-mensuel-netnet').textContent = formatCurrency(leaveMensuelNetNet);
+      document.getElementById('reclass-total-brut').textContent = formatCurrency(reclassTotalBrut);
+      document.getElementById('reclass-total-net').textContent = formatCurrency(reclassTotalNet);
+      document.getElementById('reclass-total-netnet').textContent = formatCurrency(reclassTotalNetNet);
+    } else {
+      sectionMonthly.style.display = 'none';
+    }
+  }
   
   // Détail avec cotisations sociales sur allocation de reclassement
   let reclassDetail = reclass.detail;
@@ -510,6 +565,22 @@ function handleReset() {
 
   document.getElementById('reclass-amount').textContent = '0 €';
   document.getElementById('reclass-detail').textContent = '';
+  
+  const sectionMonthly = document.getElementById('monthly-reclass-section');
+  if (sectionMonthly) {
+    sectionMonthly.style.display = 'none';
+    document.getElementById('preavis-months-label').textContent = '';
+    document.getElementById('leave-months-label').textContent = '';
+    document.getElementById('preavis-mensuel-brut').textContent = '0 €';
+    document.getElementById('preavis-mensuel-net').textContent = '0 €';
+    document.getElementById('preavis-mensuel-netnet').textContent = '0 €';
+    document.getElementById('leave-mensuel-brut').textContent = '0 €';
+    document.getElementById('leave-mensuel-net').textContent = '0 €';
+    document.getElementById('leave-mensuel-netnet').textContent = '0 €';
+    document.getElementById('reclass-total-brut').textContent = '0 €';
+    document.getElementById('reclass-total-net').textContent = '0 €';
+    document.getElementById('reclass-total-netnet').textContent = '0 €';
+  }
 
   document.getElementById('training-amount').textContent = '0 €';
   document.getElementById('training-detail').textContent = '';
@@ -519,6 +590,11 @@ function handleReset() {
 
   document.getElementById('legal-extra-sum-amount').textContent = '0 €';
   document.getElementById('legal-extra-sum-detail').textContent = '';
+  const legalExtraCsgEl = document.getElementById('legal-extra-csg-detail');
+  if (legalExtraCsgEl) {
+    legalExtraCsgEl.textContent = '';
+    legalExtraCsgEl.style.display = 'none';
+  }
 
   document.getElementById('subtotal-amount').textContent = '0 €';
 
