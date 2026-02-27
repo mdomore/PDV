@@ -150,21 +150,22 @@ function computeReclassification(
   retraiteTbRate,
   cetRate
 ) {
-  // Calcul pré-avis non consommé (brut)
+  // Calcul pré-avis
   const preavisRemaining = Math.max(preavisMonths - preavisUsed, 0);
   const preavisMonthlyAllowance = preavisBaseMonthly * (preavisRate / 100);
   const preavisAmountBrut = preavisMonthlyAllowance * preavisRemaining;
+  const preavisTotalPeriodBrut = preavisMonthlyAllowance * preavisMonths; // valeur totale sur toute la période
 
-  // Calcul congé non consommé (brut)
-  // Si le congé est réduit (employé sort avant la fin), 80% de la valeur restante est payée
-  const leaveRemaining = Math.max(leaveMonths - leaveUsed, 0);
-  const leaveMonthlyAllowance = leaveRefMonthly * (leaveRate / 100);
-  const leaveAmountRaw = leaveMonthlyAllowance * leaveRemaining;
-  // Application du pourcentage de réduction uniquement si le congé a été entamé puis réduit
-  const leaveAmountBrut =
-    leaveRemaining > 0 && leaveUsed > 0
-      ? leaveAmountRaw * (reducedRate / 100)
-      : leaveAmountRaw;
+  // Calcul congé : X mois effectués à 80% du brut + Y mois non effectués à 80% de la valeur restante (64% du brut)
+  const leaveMonthlyAllowance = leaveRefMonthly * (leaveRate / 100); // 80% du brut par mois si consommé
+  const leaveUsedClamped = Math.min(Math.max(leaveUsed, 0), leaveMonths);
+  const leaveRemaining = Math.max(leaveMonths - leaveUsedClamped, 0);
+  const leaveTotalPeriodBrut = leaveMonthlyAllowance * leaveMonths; // valeur totale si tout le congé est consommé (tous les mois à 80%)
+  const leaveEffectuesBrut = leaveMonthlyAllowance * leaveUsedClamped; // X mois effectués à 80% du brut
+  const leaveRemainingAt80 = leaveMonthlyAllowance * leaveRemaining; // valeur restante au taux 80%/mois
+  // Mois non consommés : on verse toujours reducedRate % (ex. 80%) de cette valeur = 80% des 80% par mois non fait (64%)
+  const leaveNonEffectuesBrut = leaveRemaining > 0 ? leaveRemainingAt80 * (reducedRate / 100) : 0;
+  const leaveAmountBrut = leaveEffectuesBrut + leaveNonEffectuesBrut;
 
   // Calcul des cotisations sociales sur l'allocation de reclassement (après préavis)
   // Cotisations allégées sur allocation de reclassement (~13,4% vs ~21% habituellement)
@@ -196,9 +197,16 @@ function computeReclassification(
     amount: totalAmount,
     preavisAmount: preavisAmountBrut,
     preavisAmountBrut,
+    preavisMonths,
+    preavisTotalPeriodBrut,
     leaveAmount: leaveAmountBrut,
     leaveAmountBrut,
+    leaveEffectuesBrut,
+    leaveNonEffectuesBrut,
     leaveAmountNet,
+    leaveMonths,
+    leaveTotalPeriodBrut,
+    leaveMonthlyAllowance,
     leaveCSGCRDS,
     leavePrevoyance,
     leaveMutuelle,
@@ -415,9 +423,30 @@ function handleSubmit(event) {
 
   document.getElementById('extra-amount').textContent = formatCurrency(extraRaw.amount);
   document.getElementById('extra-detail').textContent = extraRaw.detail;
+  const extraNetDetailEl = document.getElementById('extra-net-detail');
+  if (extraNetDetailEl) {
+    if (extraAdjusted > 0) {
+      extraNetDetailEl.textContent = `Net (après CSG/CRDS 9,7 %) : ${formatCurrency(extraNet)}`;
+      extraNetDetailEl.style.display = '';
+    } else {
+      extraNetDetailEl.textContent = '';
+      extraNetDetailEl.style.display = 'none';
+    }
+  }
 
   // Affichage de la somme (légale + extra-légale) ajustée
   document.getElementById('legal-extra-sum-amount').textContent = formatCurrency(legalExtraAdjusted);
+  const legalExtraNetEl = document.getElementById('legal-extra-net-amount');
+  if (legalExtraNetEl) {
+    const indemnityNet = legalNet + extraNet; // légale (exonérée) + extra nette (CSG 9,7 % sur part extra-légale uniquement)
+    if (legalExtraAdjusted > 0) {
+      legalExtraNetEl.textContent = `Net (CSG 9,7 % sur part extra-légale uniquement) : ${formatCurrency(indemnityNet)}`;
+      legalExtraNetEl.style.display = '';
+    } else {
+      legalExtraNetEl.textContent = '';
+      legalExtraNetEl.style.display = 'none';
+    }
+  }
   const legalExtraSumDetailEl = document.getElementById('legal-extra-sum-detail');
   if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
     legalExtraSumDetailEl.textContent = `Théorique : ${formatCurrency(legalExtraSum)} → Plancher de ${formatCurrency(MIN_LEGAL_EXTRA)} appliqué (ancienneté ${totalYears.toFixed(2)} ans)`;
@@ -440,40 +469,96 @@ function handleSubmit(event) {
   }
 
   document.getElementById('reclass-amount').textContent = formatCurrency(reclass.amount);
-  
-  // Mensuels préavis et congé + total
-  const preavisRemaining = reclass.preavisRemaining || 0;
-  const leaveRemaining = reclass.leaveRemaining || 0;
-  const sectionMonthly = document.getElementById('monthly-reclass-section');
-  if (sectionMonthly) {
-    if (preavisRemaining > 0 || leaveRemaining > 0) {
-      sectionMonthly.style.display = '';
-      const preavisMensuelBrut = preavisRemaining > 0 ? reclass.preavisAmountBrut / preavisRemaining : 0;
-      const preavisMensuelNet = preavisRemaining > 0 ? preavisNet / preavisRemaining : 0;
-      const preavisMensuelNetNet = preavisRemaining > 0 ? preavisNetNet / preavisRemaining : 0;
-      const leaveMensuelBrut = leaveRemaining > 0 ? reclass.leaveAmountBrut / leaveRemaining : 0;
-      const leaveMensuelNet = leaveRemaining > 0 ? leaveNet / leaveRemaining : 0;
-      const leaveMensuelNetNet = leaveRemaining > 0 ? leaveNetNet / leaveRemaining : 0;
-      const reclassTotalBrut = reclass.preavisAmountBrut + reclass.leaveAmountBrut;
-      const reclassTotalNet = preavisNet + leaveNet;
-      const reclassTotalNetNet = preavisNetNet + leaveNetNet;
-      
-      document.getElementById('preavis-months-label').textContent = preavisRemaining > 0 ? `(${preavisRemaining.toFixed(1)} mois)` : '(0 mois)';
-      document.getElementById('leave-months-label').textContent = leaveRemaining > 0 ? `(${leaveRemaining.toFixed(1)} mois)` : '(0 mois)';
-      document.getElementById('preavis-mensuel-brut').textContent = formatCurrency(preavisMensuelBrut);
-      document.getElementById('preavis-mensuel-net').textContent = formatCurrency(preavisMensuelNet);
-      document.getElementById('preavis-mensuel-netnet').textContent = formatCurrency(preavisMensuelNetNet);
-      document.getElementById('leave-mensuel-brut').textContent = formatCurrency(leaveMensuelBrut);
-      document.getElementById('leave-mensuel-net').textContent = formatCurrency(leaveMensuelNet);
-      document.getElementById('leave-mensuel-netnet').textContent = formatCurrency(leaveMensuelNetNet);
-      document.getElementById('reclass-total-brut').textContent = formatCurrency(reclassTotalBrut);
-      document.getElementById('reclass-total-net').textContent = formatCurrency(reclassTotalNet);
-      document.getElementById('reclass-total-netnet').textContent = formatCurrency(reclassTotalNetNet);
+
+  // Valeur totale sur la période (préavis + congé) — brut, net, net net
+  const sectionPeriodTotals = document.getElementById('period-totals-section');
+  if (sectionPeriodTotals) {
+    const hasPreavis = (reclass.preavisMonths || 0) > 0;
+    const hasLeave = (reclass.leaveMonths || 0) > 0;
+    if (hasPreavis || hasLeave) {
+      sectionPeriodTotals.style.display = '';
+
+      // Préavis : total période net / net net + détail mensuel
+      if (hasPreavis) {
+        const preavisPeriodNet = (reclass.preavisTotalPeriodBrut || 0) * (1 - PREAVIS_CHARGES_RATE / 100);
+        const preavisPeriodNetNet = preavisPeriodNet * (1 - incomeTaxRate / 100);
+        const preavisMonthsNum = reclass.preavisMonths || 0;
+        document.getElementById('preavis-period-months').textContent = preavisMonthsNum;
+        document.getElementById('preavis-period-brut').textContent = formatCurrency(reclass.preavisTotalPeriodBrut || 0);
+        document.getElementById('preavis-period-net').textContent = formatCurrency(preavisPeriodNet);
+        document.getElementById('preavis-period-netnet').textContent = formatCurrency(preavisPeriodNetNet);
+        document.getElementById('preavis-period-monthly').textContent = preavisMonthsNum > 0
+          ? `brut ${formatCurrency((reclass.preavisTotalPeriodBrut || 0) / preavisMonthsNum)} | net ${formatCurrency(preavisPeriodNet / preavisMonthsNum)} | net net ${formatCurrency(preavisPeriodNetNet / preavisMonthsNum)}`
+          : '—';
+      } else {
+        document.getElementById('preavis-period-months').textContent = '0';
+        document.getElementById('preavis-period-monthly').textContent = '—';
+        ['preavis-period-brut', 'preavis-period-net', 'preavis-period-netnet'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '0 €';
+        });
+      }
+
+      // Congé : total = durée totale = X mois effectués (80%) + Y mois non effectués (64%)
+      if (hasLeave) {
+        const leaveMonthsNum = reclass.leaveMonths || 0;            // durée totale
+        const leaveRemainingNum = reclass.leaveRemaining || 0;      // Y = mois non effectués
+        const leaveUsedNum = leaveMonthsNum - leaveRemainingNum;    // X = mois effectués
+        document.getElementById('leave-period-months').textContent = leaveMonthsNum;
+        document.getElementById('leave-repartition').textContent = `${leaveUsedNum} mois effectués + ${leaveRemainingNum} mois non effectués`;
+
+        const leaveChargeRatePct = reclass.leaveAmountBrut > 0
+          ? (reclass.leaveTotalCharges / reclass.leaveAmountBrut) * 100
+          : (leaveCSGCRDSRate + leavePrevoyanceRate + leaveMutuelleRate + leaveRetraiteTARate + leaveRetraiteTBRate + leaveCETRate);
+
+        // X mois effectués (80% du brut/mois) — perçus si tu restes X mois
+        const leaveEffectuesBrut = reclass.leaveEffectuesBrut || 0;
+        const leaveEffectuesNet = leaveEffectuesBrut * (1 - leaveChargeRatePct / 100);
+        const leaveEffectuesNetNet = leaveEffectuesNet * (1 - incomeTaxRate / 100);
+        document.getElementById('leave-effectues-label').textContent = `${leaveUsedNum} mois effectués (80% du brut/mois)`;
+        document.getElementById('leave-effectues-brut').textContent = formatCurrency(leaveEffectuesBrut);
+        document.getElementById('leave-effectues-net').textContent = formatCurrency(leaveEffectuesNet);
+        document.getElementById('leave-effectues-netnet').textContent = formatCurrency(leaveEffectuesNetNet);
+        document.getElementById('leave-effectues-monthly').textContent = leaveUsedNum > 0
+          ? `brut ${formatCurrency(leaveEffectuesBrut / leaveUsedNum)} | net ${formatCurrency(leaveEffectuesNet / leaveUsedNum)} | net net ${formatCurrency(leaveEffectuesNetNet / leaveUsedNum)}`
+          : '—';
+
+        // Y mois non effectués (64% du brut/mois) — versés en capital
+        const leaveNonEffectuesBrut = reclass.leaveNonEffectuesBrut || 0;
+        document.getElementById('leave-non-effectues-label').textContent = `${leaveRemainingNum} mois non effectués (64% du brut/mois)`;
+        if (leaveNonEffectuesBrut > 0 && reclass.leaveAmountBrut > 0) {
+          const ratio = leaveNonEffectuesBrut / reclass.leaveAmountBrut;
+          const leaveNonEffectuesNet = leaveNet * ratio;
+          const leaveNonEffectuesNetNet = leaveNetNet * ratio;
+          document.getElementById('leave-remaining-brut').textContent = formatCurrency(leaveNonEffectuesBrut);
+          document.getElementById('leave-remaining-net').textContent = formatCurrency(leaveNonEffectuesNet);
+          document.getElementById('leave-remaining-netnet').textContent = formatCurrency(leaveNonEffectuesNetNet);
+          document.getElementById('leave-remaining-monthly').textContent = leaveRemainingNum > 0
+            ? `brut ${formatCurrency(leaveNonEffectuesBrut / leaveRemainingNum)} | net ${formatCurrency(leaveNonEffectuesNet / leaveRemainingNum)} | net net ${formatCurrency(leaveNonEffectuesNetNet / leaveRemainingNum)}`
+            : '—';
+        } else {
+          document.getElementById('leave-remaining-brut').textContent = '0 €';
+          document.getElementById('leave-remaining-net').textContent = '0 €';
+          document.getElementById('leave-remaining-netnet').textContent = '0 €';
+          document.getElementById('leave-remaining-monthly').textContent = '—';
+        }
+      } else {
+        document.getElementById('leave-period-months').textContent = '0';
+        document.getElementById('leave-repartition').textContent = '0 mois effectués + 0 mois non effectués';
+        document.getElementById('leave-effectues-label').textContent = '0 mois effectués (80% du brut/mois)';
+        document.getElementById('leave-effectues-monthly').textContent = '—';
+        document.getElementById('leave-non-effectues-label').textContent = '0 mois non effectués (64% du brut/mois)';
+        document.getElementById('leave-remaining-monthly').textContent = '—';
+        ['leave-effectues-brut', 'leave-effectues-net', 'leave-effectues-netnet', 'leave-remaining-brut', 'leave-remaining-net', 'leave-remaining-netnet'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '0 €';
+        });
+      }
     } else {
-      sectionMonthly.style.display = 'none';
+      sectionPeriodTotals.style.display = 'none';
     }
   }
-  
+
   // Détail avec cotisations sociales sur allocation de reclassement
   let reclassDetail = reclass.detail;
   if (reclass.leaveRemaining > 0) {
@@ -523,6 +608,14 @@ function handleSubmit(event) {
   const taxableAmount = preavisNet + leaveNet + primesNet;
   totalNetNetDetailEl.textContent = `Après déduction de l'impôt sur le revenu (${formatCurrency(incomeTaxDeducted)} déduits sur ${formatCurrency(taxableAmount)} soumis à l'impôt, taux ${incomeTaxRate.toFixed(1)}%). Indemnités légales/conventionnelles et supra-légale exonérées d'impôts.`;
 
+  // Total indemnités seules (sans prime, pré-avis et congé) = légal + extra-légal
+  const totalIndemnitesBrut = legalExtraAdjusted;
+  const totalIndemnitesNet = legalNet + extraNet;
+  const totalIndemnitesNetNet = legalNetNet + extraNetNet;
+  document.getElementById('total-indemnites-brut').textContent = formatCurrency(totalIndemnitesBrut);
+  document.getElementById('total-indemnites-net').textContent = formatCurrency(totalIndemnitesNet);
+  document.getElementById('total-indemnites-netnet').textContent = formatCurrency(totalIndemnitesNetNet);
+
   // Affichage des indicateurs de plancher/plafond sur (légale + extra-légale)
   if (MIN_LEGAL_EXTRA != null && legalExtraSum < MIN_LEGAL_EXTRA) {
     totalDetailEl.textContent = `Plancher appliqué : (légale + extra-légale) relevé de ${formatCurrency(legalExtraSum)} à ${formatCurrency(MIN_LEGAL_EXTRA)} (ancienneté ${totalYears.toFixed(2)} ans).`;
@@ -557,29 +650,36 @@ function handleReset() {
     leaveRateInput.value = 80;
   }
 
+  updateLeaveSlider();
+
   document.getElementById('legal-amount').textContent = '0 €';
   document.getElementById('legal-detail').textContent = '';
 
   document.getElementById('extra-amount').textContent = '0 €';
   document.getElementById('extra-detail').textContent = '';
+  const extraNetResetEl = document.getElementById('extra-net-detail');
+  if (extraNetResetEl) {
+    extraNetResetEl.textContent = '';
+    extraNetResetEl.style.display = 'none';
+  }
 
   document.getElementById('reclass-amount').textContent = '0 €';
   document.getElementById('reclass-detail').textContent = '';
-  
-  const sectionMonthly = document.getElementById('monthly-reclass-section');
-  if (sectionMonthly) {
-    sectionMonthly.style.display = 'none';
-    document.getElementById('preavis-months-label').textContent = '';
-    document.getElementById('leave-months-label').textContent = '';
-    document.getElementById('preavis-mensuel-brut').textContent = '0 €';
-    document.getElementById('preavis-mensuel-net').textContent = '0 €';
-    document.getElementById('preavis-mensuel-netnet').textContent = '0 €';
-    document.getElementById('leave-mensuel-brut').textContent = '0 €';
-    document.getElementById('leave-mensuel-net').textContent = '0 €';
-    document.getElementById('leave-mensuel-netnet').textContent = '0 €';
-    document.getElementById('reclass-total-brut').textContent = '0 €';
-    document.getElementById('reclass-total-net').textContent = '0 €';
-    document.getElementById('reclass-total-netnet').textContent = '0 €';
+
+  const sectionPeriodTotalsReset = document.getElementById('period-totals-section');
+  if (sectionPeriodTotalsReset) {
+    sectionPeriodTotalsReset.style.display = 'none';
+    const periodIds = ['preavis-period-months', 'preavis-period-brut', 'preavis-period-net', 'preavis-period-netnet', 'preavis-period-monthly', 'leave-period-months', 'leave-repartition', 'leave-effectues-label', 'leave-effectues-brut', 'leave-effectues-net', 'leave-effectues-netnet', 'leave-effectues-monthly', 'leave-non-effectues-label', 'leave-remaining-brut', 'leave-remaining-net', 'leave-remaining-netnet', 'leave-remaining-monthly'];
+    periodIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (id.includes('monthly')) el.textContent = '—';
+      else if (id === 'leave-repartition') el.textContent = '0 mois effectués + 0 mois non effectués';
+      else if (id === 'leave-effectues-label') el.textContent = '0 mois effectués (80% du brut/mois)';
+      else if (id === 'leave-non-effectues-label') el.textContent = '0 mois non effectués (64% du brut/mois)';
+      else if (id.includes('months')) el.textContent = '0';
+      else el.textContent = '0 €';
+    });
   }
 
   document.getElementById('training-amount').textContent = '0 €';
@@ -590,6 +690,11 @@ function handleReset() {
 
   document.getElementById('legal-extra-sum-amount').textContent = '0 €';
   document.getElementById('legal-extra-sum-detail').textContent = '';
+  const legalExtraNetResetEl = document.getElementById('legal-extra-net-amount');
+  if (legalExtraNetResetEl) {
+    legalExtraNetResetEl.textContent = '';
+    legalExtraNetResetEl.style.display = 'none';
+  }
   const legalExtraCsgEl = document.getElementById('legal-extra-csg-detail');
   if (legalExtraCsgEl) {
     legalExtraCsgEl.textContent = '';
@@ -601,6 +706,9 @@ function handleReset() {
   document.getElementById('total-amount').textContent = '0 €';
   document.getElementById('total-net-amount').textContent = '0 €';
   document.getElementById('total-net-net-amount').textContent = '0 €';
+  document.getElementById('total-indemnites-brut').textContent = '0 €';
+  document.getElementById('total-indemnites-net').textContent = '0 €';
+  document.getElementById('total-indemnites-netnet').textContent = '0 €';
   const totalDetailEl = document.getElementById('total-detail');
   const totalNetDetailEl = document.getElementById('total-net-detail');
   const totalNetNetDetailEl = document.getElementById('total-net-net-detail');
@@ -722,6 +830,35 @@ function updateHypothesisUI() {
   }
 }
 
+function updateLeaveSlider() {
+  const durationInput = document.getElementById('reclass-leave-months');
+  const slider = document.getElementById('reclass-leave-used');
+  const valueEl = document.getElementById('reclass-leave-used-value');
+  const explanationEl = document.getElementById('reclass-leave-used-explanation');
+  if (!durationInput || !slider || !valueEl || !explanationEl) return;
+
+  const max = Math.max(0, parseNumber(durationInput));
+  slider.max = max;
+  slider.setAttribute('aria-valuemax', max);
+  let used = parseInt(slider.value, 10) || 0;
+  if (used > max) {
+    used = max;
+    slider.value = used;
+  }
+  valueEl.textContent = used;
+  const notDone = max - used;
+  const reducedPct = 64; // 80% de 80%
+  if (max === 0) {
+    explanationEl.textContent = 'Aucun mois de congé.';
+  } else if (notDone === 0) {
+    explanationEl.textContent = `${used} mois à 80% du brut (congé effectué en totalité).`;
+  } else if (used === 0) {
+    explanationEl.textContent = `0 mois à 80% du brut — ${notDone} mois non fait (${reducedPct}% du brut).`;
+  } else {
+    explanationEl.textContent = `${used} mois à 80% du brut — ${notDone} mois non fait (${reducedPct}% du brut).`;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('pdv-form');
   const resetBtn = document.getElementById('reset-btn');
@@ -810,6 +947,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ceilingInput.value = 300000;
   }
   
+  // Curseur congé : max = durée congé, valeur = mois effectués à 80%
+  const leaveMonthsInput = document.getElementById('reclass-leave-months');
+  const leaveUsedSlider = document.getElementById('reclass-leave-used');
+  if (leaveMonthsInput) {
+    leaveMonthsInput.addEventListener('input', updateLeaveSlider);
+    leaveMonthsInput.addEventListener('change', updateLeaveSlider);
+  }
+  if (leaveUsedSlider) {
+    leaveUsedSlider.addEventListener('input', updateLeaveSlider);
+    leaveUsedSlider.addEventListener('change', updateLeaveSlider);
+  }
+  updateLeaveSlider();
+
   // Initialisation de l'état des champs
   toggleBonusFields();
   updateHypothesisUI();

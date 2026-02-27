@@ -263,6 +263,42 @@ body {
   transform: translateY(-1px);
 }
 
+/* Curseur congé de reclassement */
+.leave-slider-group .field-slider {
+  grid-column: 1 / -1;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  min-width: 120px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.3);
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.slider-value {
+  min-width: 2ch;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.slider-explanation {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .field small {
   font-size: 0.75rem;
   color: var(--muted);
@@ -272,6 +308,11 @@ body {
   display: flex;
   gap: 10px;
   margin-top: 12px;
+}
+
+.actions.actions-top {
+  margin-top: 0;
+  margin-bottom: 16px;
 }
 
 button {
@@ -366,6 +407,74 @@ button.secondary:hover {
   margin: 4px 0 0;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.result-period-totals {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.result-period-totals h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.period-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.period-total-block {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.period-total-block h4 {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.period-total-line {
+  margin: 4px 0;
+  font-size: 0.85rem;
+}
+
+.period-total-line .label {
+  color: var(--muted);
+}
+
+.period-total-line.period-sub {
+  margin-top: 8px;
+  margin-bottom: 2px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--accent-text);
+}
+
+.period-total-line.period-repartition {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.period-total-line.period-monthly {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.period-total-line.period-remaining {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .result-monthly-reclass {
@@ -550,6 +659,31 @@ button.secondary:hover {
   font-size: 1.35rem;
   font-weight: 650;
   color: #c4b5fd;
+}
+
+.result-total-indemnites-seules {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.result-total-indemnites-seules h3 {
+  margin: 0 0 2px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.result-total-indemnites-seules .amount-line {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.result-total-indemnites-seules .amount-line .label {
+  color: var(--muted);
+  margin-right: 6px;
 }
 
 .floor-ceiling-info {
